@@ -37,6 +37,7 @@
   <ItemGroup>
     <ResourceCompile Include="FilterTesting.rc" />
     <ClCompile Include="common.cpp" />
+    <ClCompile Include="FSFilter.cpp" />
     <ClCompile Include="StringFilters.cpp" />
     <ClCompile Include="FilterTesting.cpp" />
     <Inf Include="FilterTesting.inf" />
@@ -184,6 +185,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />
+    <ClInclude Include="FSFilter.h" />
     <ClInclude Include="StringFilters.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -10,3 +10,5 @@
 
 void* __cdecl operator new(size_t size, POOL_TYPE pool, ULONG tag = 0);
 void __cdecl operator delete(void* p, unsigned __int64);
+
+#define FlagOn(_F,_SF) ((_F) & (_SF))

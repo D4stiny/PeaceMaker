@@ -131,7 +131,6 @@ StringFilters::AddFilter (
 	// Set the operation flags for this filter.
 	//
 	newFilter->Flags = OperationFlag;
-
 Exit:
 	//
 	// New filter has been initialized, release the lock.
@@ -208,6 +207,7 @@ StringFilters::RemoveFilter(
 		if (currentFilter)
 		{
 			RemoveEntryList(RCAST<PLIST_ENTRY>(currentFilter));
+			filterDeleted = TRUE;
 		}
 	}
 Exit:
