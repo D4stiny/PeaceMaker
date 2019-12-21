@@ -1,11 +1,11 @@
 #include "common.h"
-#include "Filters.h"
+#include "StringFilters.h"
 
 #define FlagOn(_F,_SF) ((_F) & (_SF))
 #pragma prefast(disable:__WARNING_ENCODE_MEMBER_FUNCTION_POINTER, "Not valid for kernel mode drivers")
 
 PFLT_FILTER gFilterHandle;
-PCUSTOM_FILTERS fileFilters;
+PSTRING_FILTERS fileFilters;
 
 /*************************************************************************
     Prototypes
@@ -155,12 +155,23 @@ DriverEntry (
 {
     NTSTATUS status;
 
+	UNREFERENCED_PARAMETER(DriverObject);
+
     UNREFERENCED_PARAMETER( RegistryPath );
 
-	DBGPRINT("FilterTesting!DriverEntry: Entered");
+	DBGPRINT("FilterTesting!DriverEntry: Hello world.");
 
-	fileFilters = new (PagedPool) CUSTOM_FILTERS();
-	fileFilters->AddFilter(L"preventdeletion");
+	fileFilters = new (PagedPool, 'fFmP') StringFilters();
+	if (fileFilters == NULL)
+	{
+		DBGPRINT("FilterTesting!DriverEntry: Failed to allocate fileFilters.");
+		status = STATUS_FAILED_DRIVER_ENTRY;
+		goto Exit;
+	}
+
+	fileFilters->AddFilter(L"preventdeletion", FILTER_FLAG_DELETE);
+	fileFilters->AddFilter(L"preventwrite", FILTER_FLAG_WRITE);
+	fileFilters->AddFilter(L"preventall", FILTER_FLAG_ALL);
 
     //
     //  Register with FltMgr to tell it our callback routines
@@ -186,6 +197,7 @@ DriverEntry (
         }
     }
 
+Exit:
     return status;
 }
 
@@ -206,7 +218,10 @@ FilterTestingUnload (
 
     FltUnregisterFilter( gFilterHandle );
 
-	fileFilters->DestructCustomFilters();
+	//
+	// Make sure to deconstruct the class.
+	//
+	fileFilters->~StringFilters();
 	delete fileFilters;
 
     return STATUS_SUCCESS;
@@ -352,7 +367,7 @@ FilterTestingPreCreateOperation(
 	if (FlagOn(Data->Iopb->Parameters.Create.Options, FILE_DELETE_ON_CLOSE)) {
 		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED, &fileNameInfo)))
 		{
-			if (fileFilters->MatchesFilter(fileNameInfo->Name.Buffer) != FALSE)
+			if (fileFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_DELETE) != FALSE)
 			{
 				DBGPRINT("FilterTesting!FilterTestingPreCreateOperation: Detected FILE_DELETE_ON_CLOSE of %wZ. Prevented deletion!", fileNameInfo->Name);
 				Data->Iopb->TargetFileObject->DeletePending = FALSE;
@@ -389,7 +404,7 @@ FilterTestingPreWriteOperation(
 
 	if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED, &fileNameInfo)))
 	{
-		if (fileFilters->MatchesFilter(fileNameInfo->Name.Buffer) != FALSE)
+		if (fileFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_WRITE) != FALSE)
 		{
 			DBGPRINT("FilterTesting!FilterTestingPreCreateOperation: Detected write on %wZ. Prevented write!", fileNameInfo->Name);
 			Data->Iopb->TargetFileObject->DeletePending = FALSE;
@@ -428,7 +443,7 @@ FilterTestingPreSetInfoOperation(
 	case FileDispositionInformationEx:
 		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED, &fileNameInfo)))
 		{
-			if (fileFilters->MatchesFilter(fileNameInfo->Name.Buffer) != FALSE)
+			if (fileFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_DELETE) != FALSE)
 			{
 				DBGPRINT("FilterTesting!FilterTestingPreSetInfoOperation: Detected attempted file deletion of %wZ. Prevented deletion!", fileNameInfo->Name);
 				Data->IoStatus.Information = 0;

@@ -1,11 +1,9 @@
-#include "Filters.h"
+#include "StringFilters.h"
 
 /**
 	Initialize the CUSTOM_FILTERS class by initializing the linked list's lock.
 */
-CUSTOM_FILTERS::CUSTOM_FILTERS(
-	VOID
-	)
+StringFilters::StringFilters()
 {
 	//
 	// Initialize the lock for the filters.
@@ -19,13 +17,9 @@ CUSTOM_FILTERS::CUSTOM_FILTERS(
 /**
 	Destroy the CustomFilters class by clearing the filters linked list and deleting the associated lock.
 */
-VOID
-CUSTOM_FILTERS::DestructCustomFilters (
-	VOID
-	)
+StringFilters::~StringFilters()
 {
-	PFILTERINFO currentFilter;
-	PFILTERINFO nextFilter;
+	PLIST_ENTRY currentFilter;
 
 	PAGED_CODE();
 
@@ -52,31 +46,31 @@ CUSTOM_FILTERS::DestructCustomFilters (
 	//
 	// Go through each filter and free it.
 	//
-	currentFilter = this->filtersHead;
-	while (currentFilter)
+	if (this->filtersHead)
 	{
-		nextFilter = RCAST<PFILTERINFO>(currentFilter->SingleListEntry.Next);
-
-		//
-		// Free the filter.
-		//
-		ExFreePoolWithTag(SCAST<PVOID>(currentFilter), FILTER_INFO_TAG);
-
-		currentFilter = nextFilter;
+		while (IsListEmpty(RCAST<PLIST_ENTRY>(this->filtersHead)) == FALSE)
+		{
+			currentFilter = RemoveHeadList(RCAST<PLIST_ENTRY>(this->filtersHead));
+			//
+			// Free the filter.
+			//
+			ExFreePoolWithTag(SCAST<PVOID>(currentFilter), FILTER_INFO_TAG);
+		}
 	}
 }
 
 /**
 	Add a filter to the linked list of filters.
 	@param MatchString - The string to filter with.
+	@param OperationFlag - Specifies what operations this filter should be used for.
 	@return A random identifier required for future operations with the new filter.
 */
 ULONG
-CUSTOM_FILTERS::AddFilter (
-	WCHAR* MatchString
+StringFilters::AddFilter (
+	WCHAR* MatchString,
+	ULONG OperationFlag
 	)
 {
-	PFILTERINFO currentFilter;
 	PFILTERINFO newFilter;
 	LARGE_INTEGER currentTime;
 	ULONG epochSeconds;
@@ -96,7 +90,7 @@ CUSTOM_FILTERS::AddFilter (
 	//
 	// Allocate space for the new filter.
 	//
-	newFilter = RCAST<PFILTERINFO>(ExAllocatePoolWithTag(PagedPool, sizeof(FILTERINFO), FILTER_INFO_TAG));
+	newFilter = RCAST<PFILTERINFO>(ExAllocatePoolWithTag(NonPagedPool, sizeof(FILTERINFO), FILTER_INFO_TAG));
 	if (newFilter == NULL)
 	{
 		DBGPRINT("Failed to allocate space for filter info.");
@@ -105,32 +99,20 @@ CUSTOM_FILTERS::AddFilter (
 
 	memset(RCAST<PVOID>(newFilter), 0, sizeof(FILTERINFO));
 
-	currentFilter = this->filtersHead;
-	while (currentFilter)
-	{
-		//
-		// Break if we're at the last element.
-		//
-		if (currentFilter->SingleListEntry.Next == NULL)
-		{
-			break;
-		}
-		currentFilter = RCAST<PFILTERINFO>(currentFilter->SingleListEntry.Next);
-	}
-
 	//
-	// Set the next entry of the filter list to the new filter.
+	// Check if the list has been initialized.
 	//
-	if (currentFilter)
+	if (this->filtersHead == NULL)
 	{
-		currentFilter->SingleListEntry.Next = RCAST<PSINGLE_LIST_ENTRY>(newFilter);
+		this->filtersHead = newFilter;
+		InitializeListHead(RCAST<PLIST_ENTRY>(this->filtersHead));
 	}
+	//
+	// Otherwise, just append the element to the end of the list.
+	//
 	else
 	{
-		//
-		// Otherwise, we need to initialize the head.
-		//
-		this->filtersHead = newFilter;
+		InsertTailList(RCAST<PLIST_ENTRY>(this->filtersHead), RCAST<PLIST_ENTRY>(newFilter));
 	}
 
 	//
@@ -144,6 +126,11 @@ CUSTOM_FILTERS::AddFilter (
 	// Copy the filter string to the new filter.
 	//
 	wcsncpy_s(newFilter->MatchString, MatchString, MAX_PATH);
+
+	//
+	// Set the operation flags for this filter.
+	//
+	newFilter->Flags = OperationFlag;
 
 Exit:
 	//
@@ -168,13 +155,12 @@ Exit:
 	@return Whether or not deletion was successful.
 */
 BOOLEAN
-CUSTOM_FILTERS::RemoveFilter(
+StringFilters::RemoveFilter(
 	ULONG FilterId
 	)
 {
 	BOOLEAN filterDeleted;
 	PFILTERINFO currentFilter;
-	PFILTERINFO previousFilter;
 
 	PAGED_CODE();
 
@@ -197,7 +183,6 @@ CUSTOM_FILTERS::RemoveFilter(
 	if (this->filtersHead)
 	{
 		currentFilter = this->filtersHead;
-		previousFilter = currentFilter;
 
 		//
 		// Check if the filter to remove is the head.
@@ -208,20 +193,22 @@ CUSTOM_FILTERS::RemoveFilter(
 			goto Exit;
 		}
 
-		while (currentFilter)
+		do
 		{
 			if (currentFilter->Id == FilterId)
 			{
 				break;
 			}
-			previousFilter = currentFilter;
-			currentFilter = RCAST<PFILTERINFO>(currentFilter->SingleListEntry.Next);
+			currentFilter = RCAST<PFILTERINFO>(currentFilter->ListEntry.Flink);
+		} while (currentFilter && currentFilter != this->filtersHead);
+		
+		//
+		// Remove the entry from the list.
+		//
+		if (currentFilter)
+		{
+			RemoveEntryList(RCAST<PLIST_ENTRY>(currentFilter));
 		}
-
-		//
-		// Set the previous element to point at the element after the one we're deleting.
-		//
-		previousFilter->SingleListEntry.Next = currentFilter->SingleListEntry.Next;
 	}
 Exit:
 	//
@@ -243,11 +230,13 @@ Exit:
 /**
 	Check if a string contains any filtered phrases.
 	@param StrToCmp - The string to search.
+	@param OperationFlag - Specify FILTER_FLAG_X's to match certain filters for a variety of operations.
 	@return Whether or not there was a filter that matched.
 */
 BOOLEAN
-CUSTOM_FILTERS::MatchesFilter (
-	WCHAR* StrToCmp
+StringFilters::MatchesFilter (
+	WCHAR* StrToCmp,
+	ULONG OperationFlag
 	)
 {
 	BOOLEAN filterMatched;
@@ -282,19 +271,22 @@ CUSTOM_FILTERS::MatchesFilter (
 	//
 	// Iterate filters for a match.
 	//
-	currentFilter = this->filtersHead;
-	while (currentFilter)
+	if (this->filtersHead)
 	{
-		//
-		// Check if the string to compare contains the filter.
-		//
-		//DBGPRINT("Filter 0x%llx, MatchString 0x%llx", currentFilter, currentFilter->MatchString);
-		if (wcsstr(RCAST<CONST WCHAR*>(&tempStrToCmp), RCAST<CONST WCHAR*>(&currentFilter->MatchString)) != NULL)
+		currentFilter = this->filtersHead;
+		do
 		{
-			filterMatched = TRUE;
-			goto Exit;
-		}
-		currentFilter = RCAST<PFILTERINFO>(currentFilter->SingleListEntry.Next);
+			//
+			// Check if the string to compare contains the filter.
+			//
+			if ((currentFilter->Flags & OperationFlag) &&
+				(wcsstr(RCAST<CONST WCHAR*>(&tempStrToCmp), RCAST<CONST WCHAR*>(&currentFilter->MatchString)) != NULL))
+			{
+				filterMatched = TRUE;
+				goto Exit;
+			}
+			currentFilter = RCAST<PFILTERINFO>(currentFilter->ListEntry.Flink);
+		} while (currentFilter && currentFilter != this->filtersHead);
 	}
 Exit:
 	FltReleasePushLock(&this->filtersLock);
