@@ -88,7 +88,7 @@ public:
 	FSBlockingFilter (
 		_In_ PDRIVER_OBJECT DriverObject,
 		_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
-		_Out_ NTSTATUS* Initialized,
+		_Out_ NTSTATUS* InitializeStatus,
 		_Out_ PFLT_FILTER* FilterHandle
 		);
 	~FSBlockingFilter();
@@ -97,4 +97,4 @@ public:
 	
 } FS_BLOCKING_FILTER, *PFS_BLOCKING_FILTER;
 
-#define STRING_FILTERS_TAG 'fFmP'
+#define STRING_FILE_FILTERS_TAG 'fFmP'

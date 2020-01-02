@@ -18,7 +18,7 @@ FSBlockingFilter::FSBlockingFilter (
 	)
 {
 
-	FSBlockingFilter::FileStringFilters = new (PagedPool, STRING_FILTERS_TAG) StringFilters();
+	FSBlockingFilter::FileStringFilters = new (PagedPool, STRING_FILE_FILTERS_TAG) StringFilters();
 	if (FSBlockingFilter::FileStringFilters == NULL)
 	{
 		DBGPRINT("FSBlockingFilter!FSBlockingFilter: Failed to allocate memory for string filters.");
@@ -76,11 +76,16 @@ FSBlockingFilter::~FSBlockingFilter()
 {
 	PAGED_CODE();
 
+	DBGPRINT("FSBlockingFilter!~FSBlockingFilter: Deconstructing class.");
 	//
 	// Make sure to deconstruct the class.
 	//
-	FileStringFilters->~StringFilters();
-	delete FileStringFilters;
+	if (FSBlockingFilter::FileStringFilters)
+	{
+		FSBlockingFilter::FileStringFilters->~StringFilters();
+		ExFreePoolWithTag(FSBlockingFilter::FileStringFilters, STRING_FILE_FILTERS_TAG);
+		FSBlockingFilter::FileStringFilters = NULL;
+	}
 }
 
 /**
@@ -110,10 +115,11 @@ FSBlockingFilter::HandlePreCreateOperation(
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
+	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
 	if (FlagOn(Data->Iopb->Parameters.Create.Options, FILE_DELETE_ON_CLOSE)) {
-		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED, &fileNameInfo)))
+		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
 		{
 			if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_DELETE) != FALSE)
 			{
@@ -124,6 +130,11 @@ FSBlockingFilter::HandlePreCreateOperation(
 				callbackStatus = FLT_PREOP_COMPLETE;
 			}
 		}
+	}
+
+	if (fileNameInfo)
+	{
+		FltReleaseFileNameInformation(fileNameInfo);
 	}
 
     return callbackStatus;
@@ -148,9 +159,10 @@ FSBlockingFilter::HandlePreWriteOperation(
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
+	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
-	if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED, &fileNameInfo)))
+	if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
 	{
 		if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_WRITE) != FALSE)
 		{
@@ -160,6 +172,11 @@ FSBlockingFilter::HandlePreWriteOperation(
 			Data->IoStatus.Status = STATUS_ACCESS_DENIED;
 			callbackStatus = FLT_PREOP_COMPLETE;
 		}
+	}
+
+	if (fileNameInfo)
+	{
+		FltReleaseFileNameInformation(fileNameInfo);
 	}
 
 	return callbackStatus;
@@ -184,12 +201,13 @@ FSBlockingFilter::HandlePreSetInfoOperation(
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
+	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
 	switch (Data->Iopb->Parameters.SetFileInformation.FileInformationClass) {
 	case FileDispositionInformation:
 	case FileDispositionInformationEx:
-		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED, &fileNameInfo)))
+		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
 		{
 			if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_DELETE) != FALSE)
 			{
@@ -200,6 +218,11 @@ FSBlockingFilter::HandlePreSetInfoOperation(
 			}
 		}
 		break;
+	}
+
+	if (fileNameInfo)
+	{
+		FltReleaseFileNameInformation(fileNameInfo);
 	}
 
 	return callbackStatus;

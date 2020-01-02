@@ -56,6 +56,11 @@ StringFilters::~StringFilters()
 			//
 			ExFreePoolWithTag(SCAST<PVOID>(currentFilter), FILTER_INFO_TAG);
 		}
+
+		//
+		// Finally, free the list head.
+		//
+		ExFreePoolWithTag(SCAST<PVOID>(this->filtersHead), FILTER_INFO_TAG);
 	}
 }
 

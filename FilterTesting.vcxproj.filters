@@ -17,6 +17,12 @@
       <UniqueIdentifier>{8E41214B-6785-4CFE-B992-037D68949A14}</UniqueIdentifier>
       <Extensions>inf;inv;inx;mof;mc;</Extensions>
     </Filter>
+    <Filter Include="Header Files\Filters">
+      <UniqueIdentifier>{e51791fd-6d37-4d03-af6a-4cf1d58ff83a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Filters">
+      <UniqueIdentifier>{07baa70a-638f-458b-a11e-cc54d633a0f5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="FilterTesting.inf">
@@ -35,11 +41,14 @@
     <ClCompile Include="common.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="StringFilters.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="FSFilter.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Filters</Filter>
+    </ClCompile>
+    <ClCompile Include="StringFilters.cpp">
+      <Filter>Source Files\Filters</Filter>
+    </ClCompile>
+    <ClCompile Include="RegistryFilter.cpp">
+      <Filter>Source Files\Filters</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -47,10 +56,13 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="StringFilters.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Filters</Filter>
     </ClInclude>
     <ClInclude Include="FSFilter.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="RegistryFilter.h">
+      <Filter>Header Files\Filters</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

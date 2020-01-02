@@ -38,6 +38,7 @@
     <ResourceCompile Include="FilterTesting.rc" />
     <ClCompile Include="common.cpp" />
     <ClCompile Include="FSFilter.cpp" />
+    <ClCompile Include="RegistryFilter.cpp" />
     <ClCompile Include="StringFilters.cpp" />
     <ClCompile Include="FilterTesting.cpp" />
     <Inf Include="FilterTesting.inf" />
@@ -127,6 +128,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -159,6 +161,9 @@
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>"$(OutDir)signbinary.bat" "$(TargetPath)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -186,6 +191,7 @@
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="FSFilter.h" />
+    <ClInclude Include="RegistryFilter.h" />
     <ClInclude Include="StringFilters.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

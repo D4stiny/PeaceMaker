@@ -95,5 +95,5 @@ DiskId1                 = "FilterTesting Device Installation Disk"
 DefaultInstance         = "FilterTesting Instance"
 Instance1.Name          = "FilterTesting Instance"
 ; TODO - Change the altitude value, see https://msdn.microsoft.com/en-us/windows/hardware/drivers/ifs/load-order-groups-and-altitudes-for-minifilter-drivers
-Instance1.Altitude       = "385199"
+Instance1.Altitude       = "321410"
 Instance1.Flags         = 0x0              ; Allow all attachments
