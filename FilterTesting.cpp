@@ -70,6 +70,8 @@ DriverEntry (
 	}
 
 	FilesystemMonitor->GetStringFilters()->AddFilter(L"preventdelete", FILTER_FLAG_DELETE);
+	FilesystemMonitor->GetStringFilters()->AddFilter(L"preventexecute", FILTER_FLAG_EXECUTE);
+
 
 	ULONG test = FilesystemMonitor->GetStringFilters()->AddFilter(L"preventnothing", FILTER_FLAG_WRITE);
 	if (FilesystemMonitor->GetStringFilters()->RemoveFilter(test))

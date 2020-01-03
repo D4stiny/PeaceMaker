@@ -118,12 +118,27 @@ FSBlockingFilter::HandlePreCreateOperation(
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
-	if (FlagOn(Data->Iopb->Parameters.Create.Options, FILE_DELETE_ON_CLOSE)) {
+	if (FlagOn(Data->Iopb->Parameters.Create.Options, FILE_DELETE_ON_CLOSE))
+	{
 		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
 		{
 			if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_DELETE) != FALSE)
 			{
 				DBGPRINT("FSBlockingFilter!HandlePreCreateOperation: Detected FILE_DELETE_ON_CLOSE of %wZ. Prevented deletion!", fileNameInfo->Name);
+				Data->Iopb->TargetFileObject->DeletePending = FALSE;
+				Data->IoStatus.Information = 0;
+				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
+				callbackStatus = FLT_PREOP_COMPLETE;
+			}
+		}
+	}
+	else if (Data->Iopb->Parameters.Create.SecurityContext && FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_EXECUTE))
+	{
+		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
+		{
+			if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_EXECUTE) != FALSE)
+			{
+				DBGPRINT("FSBlockingFilter!HandlePreCreateOperation: Detected FILE_EXECUTE desired access of %wZ. Prevented execute access!", fileNameInfo->Name);
 				Data->Iopb->TargetFileObject->DeletePending = FALSE;
 				Data->IoStatus.Information = 0;
 				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
