@@ -63,6 +63,10 @@ PSTRING_FILTERS RegistryBlockingFilter::RegistryStringFilters;
 
 /**
 	Function that decides whether or not to block a registry operation.
+	@param KeyObject - The registry key of the operation.
+	@param ValueName - The name of the registry value specified by the operation.
+	@param OperationFlag - The flags of the operation (i.e WRITE/DELETE).
+	@return Whether or not to block the operation.
 */
 BOOLEAN
 RegistryBlockingFilter::BlockRegistryOperation (
@@ -201,7 +205,13 @@ Exit:
 	return blockOperation;
 }
 
-
+/**
+	The callback for registry operations. If necessary, blocks certain operations on protected keys/values.
+	@param CallbackContext - Unreferenced parameter.
+	@param OperationClass - The type of registry operation.
+	@param Argument2 - A pointer to the structure associated with the operation.
+	@return The status of the registry operation.
+*/
 NTSTATUS RegistryBlockingFilter::RegistryCallback (
 	_In_ PVOID CallbackContext,
 	_In_ REG_NOTIFY_CLASS OperationClass, 
@@ -234,7 +244,6 @@ NTSTATUS RegistryBlockingFilter::RegistryCallback (
 		}
 		break;
 	}
-
 
 	return returnStatus;
 }
