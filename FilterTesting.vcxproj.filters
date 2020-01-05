@@ -23,6 +23,12 @@
     <Filter Include="Source Files\Filters">
       <UniqueIdentifier>{07baa70a-638f-458b-a11e-cc54d633a0f5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Utilities">
+      <UniqueIdentifier>{d2416d0a-1b1f-400a-a990-1af1d2a15b4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Utilities">
+      <UniqueIdentifier>{b653583e-a15b-446e-85e9-7f8cceecae8c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="FilterTesting.inf">
@@ -50,6 +56,9 @@
     <ClCompile Include="RegistryFilter.cpp">
       <Filter>Source Files\Filters</Filter>
     </ClCompile>
+    <ClCompile Include="StackWalker.cpp">
+      <Filter>Source Files\Utilities</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -63,6 +72,12 @@
     </ClInclude>
     <ClInclude Include="RegistryFilter.h">
       <Filter>Header Files\Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="StackWalker.h">
+      <Filter>Header Files\Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="ntdef.h">
+      <Filter>Header Files\Utilities</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

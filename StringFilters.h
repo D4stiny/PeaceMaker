@@ -14,7 +14,7 @@
 
 typedef struct FILTER_INFO
 {
-	LIST_ENTRY ListEntry;			// The single list entry used to iterate multiple filters.
+	LIST_ENTRY ListEntry;			// The list entry used to iterate multiple filters.
 	ULONG Id;						// Unique ID of the filter used to remove entries.
 	WCHAR MatchString[MAX_PATH];	// The string to match against. Always lowercase.
 	ULONG Flags;					// Used by MatchesFilter to determine if should use filter. Caller specifies the filters they want via flag.

@@ -39,6 +39,7 @@
     <ClCompile Include="common.cpp" />
     <ClCompile Include="FSFilter.cpp" />
     <ClCompile Include="RegistryFilter.cpp" />
+    <ClCompile Include="StackWalker.cpp" />
     <ClCompile Include="StringFilters.cpp" />
     <ClCompile Include="FilterTesting.cpp" />
     <Inf Include="FilterTesting.inf" />
@@ -191,7 +192,9 @@
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="FSFilter.h" />
+    <ClInclude Include="ntdef.h" />
     <ClInclude Include="RegistryFilter.h" />
+    <ClInclude Include="StackWalker.h" />
     <ClInclude Include="StringFilters.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

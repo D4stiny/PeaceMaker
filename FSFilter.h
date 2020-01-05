@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 #include "StringFilters.h"
+#include "StackWalker.h"
 
 typedef class FSBlockingFilter
 {
@@ -83,6 +84,8 @@ typedef class FSBlockingFilter
 	// Contains strings to block various filesystem operations.
 	//
 	static PSTRING_FILTERS FileStringFilters;
+
+	static STACK_WALKER walker;
 
 public:
 	FSBlockingFilter (

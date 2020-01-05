@@ -2,6 +2,7 @@
 
 FLT_REGISTRATION FSBlockingFilter::FilterRegistration;
 PSTRING_FILTERS FSBlockingFilter::FileStringFilters;
+STACK_WALKER FSBlockingFilter::walker;
 
 /**
 	Initializes the necessary components of the filesystem filter.
@@ -96,6 +97,97 @@ PSTRING_FILTERS FSBlockingFilter::GetStringFilters()
 	return FSBlockingFilter::FileStringFilters;
 }
 
+void StackTrace()
+{
+	CONTEXT                       Context = {};
+	KNONVOLATILE_CONTEXT_POINTERS NvContext = {};
+	UNWIND_HISTORY_TABLE          UnwindHistoryTable;
+	PRUNTIME_FUNCTION             RuntimeFunction = {};
+	PVOID                         HandlerData;
+	ULONG64                       EstablisherFrame;
+	ULONG64                       ImageBase;
+	static const CHAR* RegNames[16] = { "Rax", "Rcx", "Rdx", "Rbx", "Rsp", "Rbp",
+		"Rsi", "Rdi", "R8", "R9","R10", "R11", "R12",
+		"R13", "R14", "R15" };
+	// First, we'll get the caller's context.
+	RtlCaptureContext(&Context);
+
+
+	// Initialize the (optional) unwind history table.
+	RtlZeroMemory(
+		&UnwindHistoryTable,
+		sizeof(UNWIND_HISTORY_TABLE));
+
+	// This unwind loop intentionally skips the first call frame, as it shall
+	// correspond to the call to StackTrace64, which we aren't interested in.
+	for (ULONG Frame = 0;; Frame++) {
+		// Try to look up unwind metadata for the current function.
+		RuntimeFunction = RtlLookupFunctionEntry(
+			(PVOID)Context.Rip,
+			(PVOID*)&ImageBase,
+			&UnwindHistoryTable);
+
+		RtlZeroMemory(
+			&NvContext,
+			sizeof(KNONVOLATILE_CONTEXT_POINTERS));
+
+		if (!RuntimeFunction) {
+			// If we don't have a RUNTIME_FUNCTION, then we've encountered
+			// a leaf function.  Adjust the stack approprately.
+			Context.Rip = (ULONG64)(*(PULONG64)Context.Rsp);
+			Context.Rsp += 8;
+		}
+		else {
+			// Otherwise, call upon RtlVirtualUnwind to execute the unwind for us.
+			RtlVirtualUnwind(
+				UNW_FLAG_NHANDLER,
+				ImageBase,
+				Context.Rip,
+				RuntimeFunction,
+				&Context,
+				&HandlerData,
+				&EstablisherFrame,
+				&NvContext);
+		}
+
+		// If we reach an RIP of zero, this means that we've walked off the end
+		// of the call stack and are done.
+		if (!Context.Rip)
+			break;
+
+		// Display the context.  Note that we don't bother showing the XMM
+		// context, although we have the nonvolatile portion of it.
+		DBGPRINT(
+			"FRAME %02x: Rip=%p Rsp=%p Rbp=%p\n",
+			Frame,
+			Context.Rip,
+			Context.Rsp,
+			Context.Rbp);
+
+		DBGPRINT(
+			"r12=%p r13=%p r14=%p\n"
+			"rdi=%p rsi=%p rbx=%p\n"
+			"rbp=%p rsp=%p\n",
+			Context.R12,
+			Context.R13,
+			Context.R14,
+			Context.Rdi,
+			Context.Rsi,
+			Context.Rbx,
+			Context.Rbp,
+			Context.Rsp);
+
+		for (auto i = 0; i < 16; i++) {
+			if (NvContext.IntegerContext[i]) {
+				DBGPRINT(" -> Saved register '%s' on stack at %p (=> %p)\n",
+					RegNames[i],
+					NvContext.IntegerContext[i],
+					*NvContext.IntegerContext[i]);
+			}
+		}
+	}
+}
+
 /**
 	This function is called prior to a create operation.
 	Data - The data associated with the current operation.
@@ -111,6 +203,7 @@ FSBlockingFilter::HandlePreCreateOperation(
 {
 	FLT_PREOP_CALLBACK_STATUS callbackStatus;
 	PFLT_FILE_NAME_INFORMATION fileNameInfo;
+
 
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
@@ -132,7 +225,8 @@ FSBlockingFilter::HandlePreCreateOperation(
 			}
 		}
 	}
-	else if (Data->Iopb->Parameters.Create.SecurityContext && FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_EXECUTE))
+	
+	if (Data->Iopb->Parameters.Create.SecurityContext && FlagOn(Data->Iopb->Parameters.Create.SecurityContext->DesiredAccess, FILE_EXECUTE))
 	{
 		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
 		{

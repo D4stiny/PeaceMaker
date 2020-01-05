@@ -81,17 +81,26 @@ RegistryBlockingFilter::BlockRegistryOperation (
 	PKEY_NAME_INFORMATION pKeyNameInformation;
 	ULONG returnLength;
 	ULONG fullKeyValueLength;
+	PWCHAR tempValueName;
 	PWCHAR fullKeyValueName;
 
 	blockOperation = FALSE;
 	keyHandle = NULL;
 	returnLength = NULL;
 	pKeyNameInformation = NULL;
+	tempValueName = NULL;
 	fullKeyValueName = NULL;
 
-	if (ValueName == NULL || ValueName->Length == 0 || ValueName->Buffer == NULL)
+	if (ValueName == NULL || ValueName->Length == 0 || ValueName->Buffer == NULL || ValueName->Length > (NTSTRSAFE_UNICODE_STRING_MAX_CCH * sizeof(WCHAR)))
 	{
 		DBGPRINT("RegistryBlockingFilter!BlockRegistryOperation: ValueName is NULL.");
+		goto Exit;
+	}
+
+	tempValueName = RCAST<PWCHAR>(ExAllocatePoolWithTag(NonPagedPoolNx, ValueName->Length, REGISTRY_KEY_NAME_TAG));
+	if (tempValueName == NULL)
+	{
+		DBGPRINT("RegistryBlockingFilter!BlockRegistryOperation: Failed to allocate memory for value name with size 0x%X.", ValueName->Length);
 		goto Exit;
 	}
 
@@ -137,15 +146,10 @@ RegistryBlockingFilter::BlockRegistryOperation (
 		}
 
 		//
-		// Append a null terminator.
-		//
-		*RCAST<USHORT*>(RCAST<ULONG64>(&pKeyNameInformation->Name) + pKeyNameInformation->NameLength) = 0;
-
-		//
 		// Allocate space for key name, a backslash, the value name, and the null-terminator.
 		//
 		fullKeyValueLength = pKeyNameInformation->NameLength + 2 + ValueName->Length + 1000;
-		fullKeyValueName = RCAST<PWCHAR>(ExAllocatePoolWithTag(PagedPool, fullKeyValueLength, REGISTRY_KEY_NAME_TAG));
+		fullKeyValueName = RCAST<PWCHAR>(ExAllocatePoolWithTag(NonPagedPoolNx, fullKeyValueLength, REGISTRY_KEY_NAME_TAG));
 		if (fullKeyValueName == NULL)
 		{
 			DBGPRINT("RegistryBlockingFilter!BlockRegistryOperation: Failed to allocate memory for full key/value name with size 0x%X.", fullKeyValueLength);
@@ -155,7 +159,7 @@ RegistryBlockingFilter::BlockRegistryOperation (
 		//
 		// Copy the key name.
 		//
-		internalStatus = RtlStringCbCopyW(fullKeyValueName, fullKeyValueLength, RCAST<PCWSTR>(&pKeyNameInformation->Name));
+		internalStatus = RtlStringCbCopyNW(fullKeyValueName, fullKeyValueLength, RCAST<PCWSTR>(&pKeyNameInformation->Name), pKeyNameInformation->NameLength);
 		if (NT_SUCCESS(internalStatus) == FALSE)
 		{
 			DBGPRINT("RegistryBlockingFilter!BlockRegistryOperation: Failed to copy key name with status 0x%X.", internalStatus);
@@ -175,7 +179,7 @@ RegistryBlockingFilter::BlockRegistryOperation (
 		//
 		// Concatenate the value name.
 		//
-		internalStatus = RtlStringCbCatW(fullKeyValueName, fullKeyValueLength, ValueName->Buffer);
+		internalStatus = RtlStringCbCatNW(fullKeyValueName, fullKeyValueLength, ValueName->Buffer, ValueName->Length);
 		if (NT_SUCCESS(internalStatus) == FALSE)
 		{
 			DBGPRINT("RegistryBlockingFilter!BlockRegistryOperation: Failed to concatenate value name with status 0x%X.", internalStatus);
@@ -190,6 +194,10 @@ RegistryBlockingFilter::BlockRegistryOperation (
 	{}
 
 Exit:
+	if (tempValueName)
+	{
+		ExFreePoolWithTag(tempValueName, REGISTRY_KEY_NAME_TAG);
+	}
 	if (fullKeyValueName)
 	{
 		ExFreePoolWithTag(fullKeyValueName, REGISTRY_KEY_NAME_TAG);
