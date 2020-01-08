@@ -47,6 +47,8 @@ StackWalker::ResolveAddressModule (
 		//
 		while (currentEntry && currentEntry != &currentProcessLdr->InLoadOrderModuleList)
 		{
+			ProbeForRead(currentEntry, sizeof(*currentEntry), sizeof(ULONG));
+
 			currentModuleEntry = CONTAINING_RECORD(currentEntry, LDR_MODULE, InLoadOrderModuleList);
 			moduleEnd = RCAST<ULONG64>(currentModuleEntry->BaseAddress) + currentModuleEntry->SizeOfImage;
 

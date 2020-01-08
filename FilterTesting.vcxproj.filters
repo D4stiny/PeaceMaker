@@ -59,6 +59,9 @@
     <ClCompile Include="StackWalker.cpp">
       <Filter>Source Files\Utilities</Filter>
     </ClCompile>
+    <ClCompile Include="ProcessHistoryFilter.cpp">
+      <Filter>Source Files\Filters</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -78,6 +81,9 @@
     </ClInclude>
     <ClInclude Include="ntdef.h">
       <Filter>Header Files\Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessHistoryFilter.h">
+      <Filter>Header Files\Filters</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

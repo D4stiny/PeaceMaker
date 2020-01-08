@@ -15,6 +15,3 @@ void __cdecl operator delete(void* p, unsigned __int64);
 #define FILTER_ALTITUDE L"321410"
 
 PPEB NTAPI PsGetProcessPeb(IN PEPROCESS Process);
-
-PRUNTIME_FUNCTION RtlLookupFunctionEntry(_In_ PVOID ControlPc, _Out_ PVOID* ImageBase, _Inout_opt_ UNWIND_HISTORY_TABLE* HistoryTable);
-PEXCEPTION_ROUTINE RtlVirtualUnwind(DWORD HandlerType, DWORD64 ImageBase, DWORD64 ControlPc, PRUNTIME_FUNCTION FunctionEntry, PCONTEXT ContextRecord, PVOID* HandlerData, PDWORD64 EstablisherFrame, PKNONVOLATILE_CONTEXT_POINTERS ContextPointers);

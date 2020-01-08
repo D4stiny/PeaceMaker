@@ -93,7 +93,6 @@ DriverEntry (
 	RegistryMonitor->GetStringFilters()->AddFilter(L"preventdelete", FILTER_FLAG_DELETE);
 	RegistryMonitor->GetStringFilters()->AddFilter(L"preventall", FILTER_FLAG_ALL);
 
-
 Exit:
     return status;
 }
@@ -122,6 +121,8 @@ FilterUnload (
 	ExFreePoolWithTag(FilesystemMonitor, FILE_MONITOR_TAG);
 	RegistryMonitor->~RegistryBlockingFilter();
 	ExFreePoolWithTag(RegistryMonitor, REGISTRY_MONITOR_TAG);
+
+
 
     return STATUS_SUCCESS;
 }
