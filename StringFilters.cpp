@@ -125,7 +125,7 @@ StringFilters::AddFilter (
 	//
 	KeQuerySystemTime(&currentTime);
 	RtlTimeToSecondsSince1970(&currentTime, &epochSeconds);
-	newFilter->Id = (RtlRandomEx(&epochSeconds) + 1) % MAXDWORD32;
+	newFilter->Id = RtlRandomEx(&epochSeconds);
 	
 	//
 	// Copy the filter string to the new filter.
