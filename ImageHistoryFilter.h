@@ -10,6 +10,7 @@
 #define IMAGE_NAME_TAG 'nImP'
 #define PROCESS_HISTORY_TAG 'hPmP'
 #define STACK_HISTORY_TAG 'hSmP'
+#define IMAGE_HISTORY_TAG 'hImP'
 
 typedef struct ImageLoadHistoryEntry
 {
@@ -42,19 +43,27 @@ typedef struct ProcessHistoryEntry
 	EX_PUSH_LOCK ImageLoadHistoryLock;			// The lock protecting the linked-list of loaded images.
 } PROCESS_HISTORY_ENTRY, *PPROCESS_HISTORY_ENTRY;
 
+typedef struct ProcessSummaryEntry
+{
+	HANDLE ProcessId;				// 
+	WCHAR ImageFileName[MAX_PATH];	// The image file name of the executed process.
+	ULONG EpochExecutionTime;		// Process execution time in seconds since 1970.
+	BOOLEAN ProcessTerminated;		// Whether or not the process has terminated.
+} PROCESS_SUMMARY_ENTRY, *PPROCESS_SUMMARY_ENTRY;
+
 class ImageHistoryFilter
 {
 
 	static VOID CreateProcessNotifyRoutine (
-		HANDLE ParentId,
-		HANDLE ProcessId,
-		BOOLEAN Create
+		_In_ HANDLE ParentId,
+		_In_ HANDLE ProcessId,
+		_In_ BOOLEAN Create
 		);
 
 	static VOID LoadImageNotifyRoutine (
-		PUNICODE_STRING FullImageName,
-		HANDLE ProcessId,
-		PIMAGE_INFO ImageInfo
+		_In_ PUNICODE_STRING FullImageName,
+		_In_ HANDLE ProcessId,
+		_In_ PIMAGE_INFO ImageInfo
 		);
 
 	static StackWalker walker; // Stack walking utility.
@@ -80,7 +89,10 @@ public:
 	ImageHistoryFilter (
 		_Out_ NTSTATUS* InitializeStatus
 		);
-	~ImageHistoryFilter();
+	~ImageHistoryFilter(VOID);
 
+	USHORT GetProcessHistorySummary (
+		_In_ USHORT SkipCount,
 
+		);
 };
