@@ -50,25 +50,22 @@
     <ClCompile Include="FSFilter.cpp">
       <Filter>Source Files\Filters</Filter>
     </ClCompile>
-    <ClCompile Include="StringFilters.cpp">
-      <Filter>Source Files\Filters</Filter>
-    </ClCompile>
     <ClCompile Include="RegistryFilter.cpp">
       <Filter>Source Files\Filters</Filter>
     </ClCompile>
     <ClCompile Include="StackWalker.cpp">
       <Filter>Source Files\Utilities</Filter>
     </ClCompile>
-    <ClCompile Include="ProcessHistoryFilter.cpp">
+    <ClCompile Include="ImageHistoryFilter.cpp">
       <Filter>Source Files\Filters</Filter>
+    </ClCompile>
+    <ClCompile Include="StringFilters.cpp">
+      <Filter>Source Files\Utilities</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="StringFilters.h">
-      <Filter>Header Files\Filters</Filter>
     </ClInclude>
     <ClInclude Include="FSFilter.h">
       <Filter>Header Files\Filters</Filter>
@@ -82,8 +79,11 @@
     <ClInclude Include="ntdef.h">
       <Filter>Header Files\Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="ProcessHistoryFilter.h">
+    <ClInclude Include="ImageHistoryFilter.h">
       <Filter>Header Files\Filters</Filter>
+    </ClInclude>
+    <ClInclude Include="StringFilters.h">
+      <Filter>Header Files\Utilities</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
