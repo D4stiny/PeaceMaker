@@ -11,7 +11,7 @@ Class = "ActivityMonitor"
 ClassGuid = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
 Provider    = %ManufacturerName%
 DriverVer   = 12/17/2019,1.0.0.0
-CatalogFile = FilterTesting.cat
+CatalogFile = PeaceMakerKernel.cat
 
 [DestinationDirs]
 DefaultDestDir          = 12
@@ -74,7 +74,7 @@ HKR,"Instances\"%Instance1.Name%,"Flags",0x00010001,%Instance1.Flags%
 %DriverName%.sys
 
 [SourceDisksFiles]
-FilterTesting.sys = 1,,
+PeaceMakerKernel.sys = 1,,
 
 [SourceDisksNames]
 1 = %DiskId1%,,,
@@ -86,10 +86,10 @@ FilterTesting.sys = 1,,
 [Strings]
 ; TODO - Add your manufacturer
 ManufacturerName        = "Bill Demirkapi"
-ServiceDescription      = "FilterTesting Mini-Filter Driver"
-ServiceName             = "FilterTesting"
-DriverName              = "FilterTesting"
-DiskId1                 = "FilterTesting Device Installation Disk"
+ServiceDescription      = "Peacemaker Kernel Mini-Filter Driver"
+ServiceName             = "Peacemaker Kernel"
+DriverName              = "PeaceMakerKernel"
+DiskId1                 = "Peacemaker Kernel Device Installation Disk"
 
 ;Instances specific information.
 DefaultInstance         = "FilterTesting Instance"

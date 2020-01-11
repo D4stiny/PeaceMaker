@@ -31,12 +31,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Inf Include="FilterTesting.inf">
+    <Inf Include="PeaceMaker Kernel.inf">
       <Filter>Driver Files</Filter>
     </Inf>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="FilterTesting.rc">
+    <ResourceCompile Include="PeaceMaker Kernel.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
   </ItemGroup>
@@ -83,6 +83,9 @@
       <Filter>Header Files\Filters</Filter>
     </ClInclude>
     <ClInclude Include="StringFilters.h">
+      <Filter>Header Files\Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="AlertQueue.h">
       <Filter>Header Files\Utilities</Filter>
     </ClInclude>
   </ItemGroup>

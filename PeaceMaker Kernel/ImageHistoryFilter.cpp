@@ -1,5 +1,10 @@
 #include "ImageHistoryFilter.h"
 
+StackWalker ImageHistoryFilter::walker;
+PPROCESS_HISTORY_ENTRY ImageHistoryFilter::ProcessHistoryHead;
+EX_PUSH_LOCK ImageHistoryFilter::ProcessHistoryLock;
+BOOLEAN ImageHistoryFilter::destroying;
+
 /**
 	Register the necessary notify routines.
 	@param InitializeStatus - Status of initialization.
@@ -247,7 +252,7 @@ ImageHistoryFilter::TerminateProcessInHistory (
 				currentProcessHistory->ProcessTerminated = TRUE;
 				break;
 			}
-			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Flink);
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
 		} while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead);
 	}
 
@@ -389,6 +394,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	UNREFERENCED_PARAMETER(ImageInfo);
 
 	currentProcessHistory = NULL;
+	newImageLoadHistory = NULL;
 	status = STATUS_SUCCESS;
 
 	if (ImageHistoryFilter::destroying)
@@ -413,7 +419,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 			{
 				break;
 			}
-			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Flink);
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
 		} while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead);
 	}
 
@@ -516,4 +522,80 @@ Exit:
 		}
 		ExFreePoolWithTag(newImageLoadHistory, IMAGE_HISTORY_TAG);
 	}
+}
+
+/**
+	Get the summary for MaxProcessSummaries processes starting from the top of list + SkipCount.
+	@param SkipCount - How many processes to skip in the list.
+	@param ProcessSummaries - Caller-supplied array of process summaries that this function fills.
+	@param MaxProcessSumaries - Maximum number of process summaries that the array allows for.
+	@return The actual number of summaries returned.
+*/
+USHORT
+ImageHistoryFilter::GetProcessHistorySummary (
+	_In_ USHORT SkipCount,
+	_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
+	_In_ USHORT MaxProcessSummaries
+	)
+{
+	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+	USHORT currentProcessIndex;
+	USHORT actualFilledSummaries;
+	NTSTATUS status;
+
+	currentProcessIndex = 0;
+	actualFilledSummaries = 0;
+
+	if (ImageHistoryFilter::destroying)
+	{
+		return 0;
+	}
+
+	//
+	// Acquire a shared lock to iterate processes.
+	//
+	FltAcquirePushLockShared(&ImageHistoryFilter::ProcessHistoryLock);
+
+	//
+	// Iterate histories for the MaxProcessSummaries processes after SkipCount processes.
+	//
+	if (ImageHistoryFilter::ProcessHistoryHead)
+	{
+		currentProcessHistory = ImageHistoryFilter::ProcessHistoryHead;
+		do
+		{
+			if (currentProcessIndex >= SkipCount)
+			{
+				//
+				// Fill out the summary.
+				//
+				ProcessSummaries[currentProcessIndex].EpochExecutionTime = currentProcessHistory->EpochExecutionTime;
+				ProcessSummaries[currentProcessIndex].ProcessId = currentProcessHistory->ProcessId;
+				ProcessSummaries[currentProcessIndex].ProcessTerminated = currentProcessHistory->ProcessTerminated;
+				
+				if (currentProcessHistory->ProcessImageFileName)
+				{
+					//
+					// Copy the image name.
+					//
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(&ProcessSummaries[currentProcessIndex].ImageFileName), MAX_PATH, currentProcessHistory->ProcessImageFileName);
+					if (NT_SUCCESS(status) == FALSE)
+					{
+						DBGPRINT("ImageHistoryFilter!GetProcessHistorySummary: Failed to copy the image file name with status 0x%X.", status);
+						break;
+					}
+				}
+				actualFilledSummaries++;
+			}
+			currentProcessIndex++;
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
+		} while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead && MaxProcessSummaries > actualFilledSummaries);
+	}
+
+	//
+	// Release the lock.
+	//
+	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+
+	return actualFilledSummaries;
 }

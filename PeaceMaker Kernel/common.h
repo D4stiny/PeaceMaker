@@ -15,3 +15,4 @@ void __cdecl operator delete(void* p, unsigned __int64);
 #define FILTER_ALTITUDE L"321410"
 
 PPEB NTAPI PsGetProcessPeb(IN PEPROCESS Process);
+NTSTATUS NTAPI NtQueryInformationProcess(_In_ HANDLE ProcessHandle, _In_ PROCESSINFOCLASS ProcessInformationClass, _Out_writes_bytes_(ProcessInformationLength) PVOID ProcessInformation, _In_ ULONG ProcessInformationLength, _Out_opt_ PULONG ReturnLength);

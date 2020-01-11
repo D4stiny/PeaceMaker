@@ -1,0 +1,13 @@
+#include <windows.h>
+
+#include <ntverp.h>
+
+#define VER_FILETYPE    VFT_DRV
+#define VER_FILESUBTYPE VFT2_DRV_SYSTEM
+#define VER_COMPANYNAME_STR 		"Demirkapi Security Group"
+#define VER_FILEVERSION_STR			"1.0.0.0"
+#define VER_LEGALCOPYRIGHT_STR		"Demirkapi Security Group 2019-2020"
+#define VER_PRODUCTNAME_STR			"PeaceMaker Threat Detection"
+#define VER_FILEDESCRIPTION_STR     "The PeaceMaker TD Kernel Component."
+
+#include "common.ver"

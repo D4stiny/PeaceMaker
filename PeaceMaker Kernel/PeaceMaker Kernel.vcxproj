@@ -35,7 +35,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="FilterTesting.rc" />
+    <ResourceCompile Include="PeaceMaker Kernel.rc" />
     <ClCompile Include="common.cpp" />
     <ClCompile Include="FSFilter.cpp" />
     <ClCompile Include="ImageHistoryFilter.cpp" />
@@ -43,7 +43,7 @@
     <ClCompile Include="StackWalker.cpp" />
     <ClCompile Include="StringFilters.cpp" />
     <ClCompile Include="FilterTesting.cpp" />
-    <Inf Include="FilterTesting.inf" />
+    <Inf Include="PeaceMaker Kernel.inf" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{5A9C319B-EDBD-4E53-BFEE-2FBD7BAE767F}</ProjectGuid>
@@ -52,7 +52,8 @@
     <MinimumVisualStudioVersion>12.0</MinimumVisualStudioVersion>
     <Configuration>Debug</Configuration>
     <Platform Condition="'$(Platform)' == ''">Win32</Platform>
-    <RootNamespace>FilterTesting</RootNamespace>
+    <RootNamespace>PeaceMaker Kernel</RootNamespace>
+    <ProjectName>PeaceMaker Kernel</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -191,6 +192,7 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AlertQueue.h" />
     <ClInclude Include="common.h" />
     <ClInclude Include="FSFilter.h" />
     <ClInclude Include="ntdef.h" />

@@ -1,6 +1,7 @@
 #pragma once
 #include "common.h"
 #include "StackWalker.h"
+#include "shared.h"
 
 //
 // Maximum amount of STACK_RETURN_INFO to have in the process execution stack return history.
@@ -17,7 +18,7 @@ typedef struct ImageLoadHistoryEntry
 	LIST_ENTRY ListEntry;					// The list entry to iterate multiple images in a process.
 	UNICODE_STRING ImageFileName;			// The full image file name of loaded image.
 	PSTACK_RETURN_INFO CallerStackHistory;	// A variable-length array of the stack that loaded the image.
-	USHORT CallerStackHistorySize;			// The size of the variable-length stack history array.
+	ULONG CallerStackHistorySize;			// The size of the variable-length stack history array.
 } IMAGE_LOAD_HISTORY_ENTRY, *PIMAGE_LOAD_HISTORY_ENTRY;
 
 typedef struct ProcessHistoryEntry
@@ -37,19 +38,11 @@ typedef struct ProcessHistoryEntry
 	BOOLEAN ProcessTerminated;					// Whether or not the process has terminated.
 
 	PSTACK_RETURN_INFO CallerStackHistory;		// A variable-length array of the stack that started the process.
-	USHORT CallerStackHistorySize;				// The size of the variable-length stack history array.
+	ULONG CallerStackHistorySize;				// The size of the variable-length stack history array.
 
 	PIMAGE_LOAD_HISTORY_ENTRY ImageLoadHistory;	// A linked-list of loaded images and their respective stack histories.
 	EX_PUSH_LOCK ImageLoadHistoryLock;			// The lock protecting the linked-list of loaded images.
 } PROCESS_HISTORY_ENTRY, *PPROCESS_HISTORY_ENTRY;
-
-typedef struct ProcessSummaryEntry
-{
-	HANDLE ProcessId;				// 
-	WCHAR ImageFileName[MAX_PATH];	// The image file name of the executed process.
-	ULONG EpochExecutionTime;		// Process execution time in seconds since 1970.
-	BOOLEAN ProcessTerminated;		// Whether or not the process has terminated.
-} PROCESS_SUMMARY_ENTRY, *PPROCESS_SUMMARY_ENTRY;
 
 class ImageHistoryFilter
 {
@@ -93,6 +86,7 @@ public:
 
 	USHORT GetProcessHistorySummary (
 		_In_ USHORT SkipCount,
-
+		_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
+		_In_ USHORT MaxProcessSummaries
 		);
 };
