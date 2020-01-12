@@ -62,6 +62,12 @@
     <ClCompile Include="StringFilters.cpp">
       <Filter>Source Files\Utilities</Filter>
     </ClCompile>
+    <ClCompile Include="AlertQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DetectionLogic.cpp">
+      <Filter>Source Files\Utilities</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h">
@@ -86,6 +92,12 @@
       <Filter>Header Files\Utilities</Filter>
     </ClInclude>
     <ClInclude Include="AlertQueue.h">
+      <Filter>Header Files\Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="shared.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DetectionLogic.h">
       <Filter>Header Files\Utilities</Filter>
     </ClInclude>
   </ItemGroup>

@@ -11,66 +11,65 @@ StackWalker::ResolveAddressModule (
 	_Inout_ PSTACK_RETURN_INFO StackReturnInfo
 	)
 {
-	PEPROCESS currentProcess;
-	PPEB currentProcessPeb;
-	PPEB_LDR_DATA currentProcessLdr;
-	PLIST_ENTRY currentEntry;
-	PLDR_MODULE currentModuleEntry;
-	ULONG64 moduleEnd;
+	NTSTATUS status;
+	MEMORY_BASIC_INFORMATION meminfo;
+	SIZE_T returnLength;
+	SIZE_T mappedFilenameLength;
+	PUNICODE_STRING mappedFilename;
 
-	currentProcess = PsGetCurrentProcess();
-
-	//
-	// Not sure how this could happen.
-	//
-	NT_ASSERT(currentProcess);
+	mappedFilenameLength = sizeof(UNICODE_STRING) + MAX_PATH * 2;
 
 	//
-	// Always need to have a try/catch when dealing with user-mode pointers.
+	// Query the virtual memory to see if it's part of an image.
 	//
-	__try
+	status = ZwQueryVirtualMemory(NtCurrentProcess(), Address, MemoryBasicInformation, &meminfo, sizeof(meminfo), &returnLength);
+	if (NT_SUCCESS(status) && meminfo.Type == MEM_IMAGE)
 	{
-		//
-		// We can be reckless with memory pointers here cause everything is caught.
-		//
-		currentProcessPeb = PsGetProcessPeb(currentProcess);
-		ProbeForRead(currentProcessPeb, sizeof(*currentProcessPeb), sizeof(ULONG));
-
-		currentProcessLdr = currentProcessPeb->Ldr;
-		ProbeForRead(currentProcessLdr, sizeof(*currentProcessLdr), sizeof(ULONG));
-
-		currentEntry = currentProcessLdr->InLoadOrderModuleList.Flink;
-		currentModuleEntry = NULL;
+		StackReturnInfo->MemoryInModule = TRUE;
+		StackReturnInfo->BinaryOffset = RCAST<ULONG64>(Address) - RCAST<ULONG64>(meminfo.AllocationBase);
 
 		//
-		// Iterate every module and see if our address is contained in it.
+		// Allocate the filename.
 		//
-		while (currentEntry && currentEntry != &currentProcessLdr->InLoadOrderModuleList)
+		mappedFilename = RCAST<PUNICODE_STRING>(ExAllocatePoolWithTag(PagedPool, mappedFilenameLength, STACK_WALK_MAPPED_NAME));
+		if (mappedFilename == NULL)
 		{
-			ProbeForRead(currentEntry, sizeof(*currentEntry), sizeof(ULONG));
-
-			currentModuleEntry = CONTAINING_RECORD(currentEntry, LDR_MODULE, InLoadOrderModuleList);
-			moduleEnd = RCAST<ULONG64>(currentModuleEntry->BaseAddress) + currentModuleEntry->SizeOfImage;
-
-			//
-			// Check if address in range of module.
-			//
-			if(currentModuleEntry->BaseAddress <= Address &&
-			   moduleEnd >= RCAST<ULONG64>(Address))
-			{
-				//
-				// Fill out the structure.
-				//
-				StackReturnInfo->MemoryInModule = TRUE;
-				StackReturnInfo->BinaryOffset = RCAST<ULONG64>(Address) - RCAST<ULONG64>(currentModuleEntry->BaseAddress);
-				RtlStringCbCopyW(StackReturnInfo->BinaryPath, sizeof(StackReturnInfo->BinaryPath), currentModuleEntry->FullDllName.Buffer);
-			}
-
-			currentEntry = currentEntry->Flink;
+			DBGPRINT("StackWalker!ResolveAddressModule: Failed to allocate module name.");
+			return;
 		}
+
+		//
+		// Query the filename.
+		//
+		status = ZwQueryVirtualMemory(NtCurrentProcess(), Address, SCAST<MEMORY_INFORMATION_CLASS>(MemoryMappedFilenameInformation), mappedFilename, mappedFilenameLength, &mappedFilenameLength);
+		if (status == STATUS_BUFFER_OVERFLOW)
+		{
+			//
+			// If we don't have a large enough buffer, allocate one!
+			//
+			ExFreePoolWithTag(mappedFilename, STACK_WALK_MAPPED_NAME);
+			mappedFilename = RCAST<PUNICODE_STRING>(ExAllocatePoolWithTag(PagedPool, mappedFilenameLength, STACK_WALK_MAPPED_NAME));
+			if (mappedFilename == NULL)
+			{
+				DBGPRINT("StackWalker!ResolveAddressModule: Failed to allocate module name.");
+				return;
+			}
+			status = ZwQueryVirtualMemory(NtCurrentProcess(), Address, SCAST<MEMORY_INFORMATION_CLASS>(MemoryMappedFilenameInformation), mappedFilename, mappedFilenameLength, &mappedFilenameLength);
+		}
+
+		if (NT_SUCCESS(status) == FALSE)
+		{
+			DBGPRINT("StackWalker!ResolveAddressModule: Failed to query memory module name with status 0x%X.", status);
+			return;
+		}
+
+		//
+		// Copy the mapped name.
+		//
+		RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(&StackReturnInfo->BinaryPath), sizeof(StackReturnInfo->BinaryPath), mappedFilename);
+
+		ExFreePoolWithTag(mappedFilename, STACK_WALK_MAPPED_NAME);
 	}
-	__except (1)
-	{}
 }
 
 /**
@@ -84,24 +83,16 @@ StackWalker::IsAddressExecutable (
 	)
 {
 	NTSTATUS status;
-	HANDLE currentProcessHandle;
 	MEMORY_BASIC_INFORMATION memoryBasicInformation;
 	BOOLEAN executable;
 
 	executable = FALSE;
 	memset(&memoryBasicInformation, 0, sizeof(memoryBasicInformation));
 
-	status = ObOpenObjectByPointer(PsGetCurrentProcess(), OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, GENERIC_ALL, *PsProcessType, KernelMode, &currentProcessHandle);
-	if (NT_SUCCESS(status) == FALSE)
-	{
-		DBGPRINT("StackWalker!IsAddressExecutable: Failed to open handle to process with status 0x%X.", status);
-		goto Exit;
-	}
-
 	//
 	// Query the basic information about the memory.
 	//
-	status = ZwQueryVirtualMemory(currentProcessHandle, Address, MemoryBasicInformation, &memoryBasicInformation, sizeof(memoryBasicInformation), NULL);
+	status = ZwQueryVirtualMemory(NtCurrentProcess(), Address, MemoryBasicInformation, &memoryBasicInformation, sizeof(memoryBasicInformation), NULL);
 	if (NT_SUCCESS(status) == FALSE)
 	{
 		DBGPRINT("StackWalker!IsAddressExecutable: Failed to query virtual memory for address 0x%llx with status 0x%X.", RCAST<ULONG64>(Address), status);
@@ -116,10 +107,6 @@ StackWalker::IsAddressExecutable (
 				 FlagOn(memoryBasicInformation.AllocationProtect, PAGE_EXECUTE_READWRITE) ||
 				 FlagOn(memoryBasicInformation.AllocationProtect, PAGE_EXECUTE_WRITECOPY);
 Exit:
-	if (currentProcessHandle)
-	{
-		ZwClose(currentProcessHandle);
-	}
 	return NT_SUCCESS(status) && executable;
 }
 

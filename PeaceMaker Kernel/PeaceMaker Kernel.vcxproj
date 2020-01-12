@@ -36,7 +36,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="PeaceMaker Kernel.rc" />
+    <ClCompile Include="AlertQueue.cpp" />
     <ClCompile Include="common.cpp" />
+    <ClCompile Include="DetectionLogic.cpp" />
     <ClCompile Include="FSFilter.cpp" />
     <ClCompile Include="ImageHistoryFilter.cpp" />
     <ClCompile Include="RegistryFilter.cpp" />
@@ -194,10 +196,12 @@
   <ItemGroup>
     <ClInclude Include="AlertQueue.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="DetectionLogic.h" />
     <ClInclude Include="FSFilter.h" />
     <ClInclude Include="ntdef.h" />
     <ClInclude Include="ImageHistoryFilter.h" />
     <ClInclude Include="RegistryFilter.h" />
+    <ClInclude Include="shared.h" />
     <ClInclude Include="StackWalker.h" />
     <ClInclude Include="StringFilters.h" />
   </ItemGroup>

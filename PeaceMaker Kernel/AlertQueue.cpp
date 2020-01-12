@@ -5,9 +5,37 @@
 */
 AlertQueue::AlertQueue()
 {
-	alertsLock = RCAST<PKSPIN_LOCK>(ExAllocatePool(NonPagedPoolNx, sizeof(KSPIN_LOCK)));
-	KeInitializeSpinLock(alertsLock);
-	InitializeListHead(RCAST<PLIST_ENTRY>(&alertsHead));
+	this->alertsLock = RCAST<PKSPIN_LOCK>(ExAllocatePoolWithTag(NonPagedPoolNx, sizeof(KSPIN_LOCK), ALERT_LOCK_TAG));
+	KeInitializeSpinLock(this->alertsLock);
+	InitializeListHead(RCAST<PLIST_ENTRY>(&this->alertsHead));
+}
+
+/**
+	Clear the queue of alerts.
+*/
+AlertQueue::~AlertQueue()
+{
+	PLIST_ENTRY currentEntry;
+	KIRQL oldIRQL;
+
+	//
+	// Make sure no one is doing operations on the AlertQueue.
+	//
+	this->destroying = TRUE;
+
+	KeAcquireSpinLock(this->alertsLock, &oldIRQL);
+	KeReleaseSpinLock(this->alertsLock, oldIRQL);
+
+	while (IsListEmpty(RCAST<PLIST_ENTRY>(&this->alertsHead)) == FALSE)
+	{
+		currentEntry = RemoveHeadList(RCAST<PLIST_ENTRY>(&this->alertsHead));
+		//
+		// Free the entry.
+		//
+		ExFreePoolWithTag(SCAST<PVOID>(currentEntry), ALERT_QUEUE_ENTRY_TAG);
+	}
+
+	ExFreePoolWithTag(this->alertsLock, ALERT_LOCK_TAG);
 }
 
 /**
@@ -22,6 +50,11 @@ AlertQueue::PushAlert (
 	)
 {
 	PBASE_ALERT_INFO newAlert;
+
+	if (this->destroying)
+	{
+		return;
+	}
 
 	//
 	// Allocate space for the new alert and copy the details.
@@ -44,5 +77,28 @@ AlertQueue::PopAlert (
 	VOID
 	)
 {
+	if (this->destroying)
+	{
+		return NULL;
+	}
 	return RCAST<PBASE_ALERT_INFO>(ExInterlockedRemoveHeadList(RCAST<PLIST_ENTRY>(&this->alertsHead), this->alertsLock));
+}
+
+/**
+	Check if the queue of alerts is empty.
+	@return Whether or not the alerts queue is empty.
+*/
+BOOLEAN
+AlertQueue::IsQueueEmpty (
+	VOID
+	)
+{
+	BOOLEAN empty;
+	KIRQL oldIrql;
+
+	ExAcquireSpinLock(this->alertsLock, &oldIrql);
+	empty = IsListEmpty(RCAST<PLIST_ENTRY>(&this->alertsHead));
+	ExReleaseSpinLock(this->alertsLock, oldIrql);
+
+	return empty;
 }

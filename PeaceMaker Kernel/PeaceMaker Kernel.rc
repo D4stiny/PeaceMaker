@@ -9,5 +9,6 @@
 #define VER_LEGALCOPYRIGHT_STR		"Demirkapi Security Group 2019-2020"
 #define VER_PRODUCTNAME_STR			"PeaceMaker Threat Detection"
 #define VER_FILEDESCRIPTION_STR     "The PeaceMaker TD Kernel Component."
+#define VER_INTERNALNAME_STR		"peacemaker.sys"
 
 #include "common.ver"

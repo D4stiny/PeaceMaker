@@ -20,6 +20,12 @@ public:
 	PBASE_ALERT_INFO PopAlert (
 		VOID
 		);
+
+	BOOLEAN IsQueueEmpty (
+		VOID
+		);
+
 } ALERT_QUEUE, *PALERT_QUEUE;
 
+#define ALERT_LOCK_TAG 'lAmP'
 #define ALERT_QUEUE_ENTRY_TAG 'eAmP'

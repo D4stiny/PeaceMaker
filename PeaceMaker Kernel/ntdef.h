@@ -205,3 +205,15 @@ typedef struct _UNWIND_HISTORY_TABLE {
 #define UNW_FLAG_UHANDLER       0x2
 #define UNW_FLAG_CHAININFO      0x4
 
+#define MEM_IMAGE 0x1000000
+
+#define MemoryWorkingSetInformation 0x1
+#define MemoryMappedFilenameInformation 0x2
+#define MemoryRegionInformation 0x3
+#define MemoryWorkingSetExInformation 0x4
+#define MemorySharedCommitInformation 0x5
+#define MemoryImageInformation 0x6
+#define MemoryRegionInformationEx 0x7
+#define MemoryPrivilegedBasicInformation 0x8
+#define MemoryEnclaveImageInformation 0x9
+#define MemoryBasicInformationCapped 0xA
