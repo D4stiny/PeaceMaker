@@ -1,14 +1,42 @@
 #include "IOCTLCommunication.h"
 
 /**
-	Construct the IOCTLCommunication class by initializing the driver object.
+	Construct the IOCTLCommunication class by initializing the driver object and detector.
 	@param DriverObject - The driver's object.
 */
 IOCTLCommunication::IOCTLCommunication (
-	_In_ PDRIVER_OBJECT DriverObject
+	_In_ PDRIVER_OBJECT DriverObject,
+	_Inout_ NTSTATUS* InitializeStatus
 	)
 {
 	this->DriverObject = DriverObject;
+
+	*InitializeStatus = STATUS_SUCCESS;
+
+	//
+	// Initialize the class members.
+	//
+	this->Detector = new (NonPagedPool, DETECTION_LOGIC_TAG) DetectionLogic();
+	if (this->Detector == NULL)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to allocate space for detection logic.");
+		*InitializeStatus = STATUS_NO_MEMORY;
+		return;
+	}
+
+	this->ImageProcessFilter = new (NonPagedPool, IMAGE_HISTORY_FILTER_TAG) ImageHistoryFilter(InitializeStatus);
+	if (NT_SUCCESS(*InitializeStatus) == FALSE)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize image process history filter with status 0x%X.", *InitializeStatus);
+		return;
+	}
+	if (this->ImageProcessFilter == NULL)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to allocate space for image process history filter.");
+		*InitializeStatus = STATUS_NO_MEMORY;
+		return;
+	}
+
 	InitializeDriverIOCTL();
 }
 
@@ -19,8 +47,13 @@ IOCTLCommunication::~IOCTLCommunication	(
 	VOID
 	)
 {
-	this->DriverObject = DriverObject;
-	InitializeDriverIOCTL();
+	this->Detector->~DetectionLogic();
+	ExFreePoolWithTag(this->Detector, DETECTION_LOGIC_TAG);
+
+	this->ImageProcessFilter->~ImageHistoryFilter();
+	ExFreePoolWithTag(this->ImageProcessFilter, IMAGE_HISTORY_FILTER_TAG);
+
+	UninitializeDriverIOCTL();
 }
 
 /**
@@ -61,14 +94,114 @@ IOCTLCommunication::IOCTLDeviceControl (
 	_In_ PIRP Irp
 	)
 {
-	UNREFERENCED_PARAMETER(DeviceObject);
+	PIO_STACK_LOCATION irpStackLocation;
+	ULONG ioctlCode;
+	ULONG inputLength;
+	ULONG outputLength;
 
+	PBASE_ALERT_INFO poppedAlert;
+	PPROCESS_SUMMARY_REQUEST processSummaryRequest;
+	PPROCESS_DETAILED_REQUEST processDetailedRequest;
+	ULONG maxSummaryCount;
+
+	UNREFERENCED_PARAMETER(DeviceObject);
 	PAGED_CODE();
 
+	irpStackLocation = IoGetCurrentIrpStackLocation(Irp);
+
 	//
-	// Just accept everyone for now.
-	// TODO: Implement various IOCTL codes.
+	// Grab basic information about the request.
 	//
+	ioctlCode = irpStackLocation->Parameters.DeviceIoControl.IoControlCode;
+	inputLength = irpStackLocation->Parameters.DeviceIoControl.InputBufferLength;
+	outputLength = irpStackLocation->Parameters.DeviceIoControl.OutputBufferLength;
+
+	//
+	// Handle the different IOCTL request types.
+	//
+	switch (ioctlCode)
+	{
+	case IOCTL_ALERTS_QUEUED:
+		if (outputLength >= sizeof(BOOLEAN))
+		{
+			//
+			// Return the status of the Queue.
+			//
+			*RCAST<BOOLEAN*>(Irp->AssociatedIrp.SystemBuffer) = IOCTLCommunication::Detector->GetAlertQueue()->IsQueueEmpty();
+		}
+		break;
+	case IOCTL_POP_ALERT:
+		if (outputLength <= MAX_STACK_VIOLATION_ALERT_SIZE)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_POP_ALERT but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_STACK_VIOLATION_ALERT_SIZE);
+			goto Exit;
+		}
+		//
+		// Pop an alert from the queue.
+		//
+		poppedAlert = IOCTLCommunication::Detector->GetAlertQueue()->PopAlert();
+		if (poppedAlert == NULL)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_POP_ALERT but no alert to pop.");
+			goto Exit;
+		}
+		//
+		// Copy the alert.
+		//
+		memcpy_s(Irp->AssociatedIrp.SystemBuffer, outputLength, poppedAlert, poppedAlert->AlertSize);
+		//
+		// Free the alert entry.
+		//
+		IOCTLCommunication::Detector->GetAlertQueue()->FreeAlert(poppedAlert);
+		break;
+	case IOCTL_GET_PROCESSES:
+		if (inputLength < sizeof(PROCESS_SUMMARY_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but input buffer is too small.");
+			goto Exit;
+		}
+
+		//
+		// Verify the specified array size.
+		//
+		processSummaryRequest = RCAST<PPROCESS_SUMMARY_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+		if (outputLength < MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest));
+			goto Exit;
+		}
+
+		//
+		// Grab the history summaries.
+		//
+		processSummaryRequest->ProcessHistorySize = IOCTLCommunication::ImageProcessFilter->GetProcessHistorySummary(processSummaryRequest->SkipCount, processSummaryRequest->ProcessHistory, processSummaryRequest->ProcessHistorySize);
+		break;
+	case IOCTL_GET_PROCESS_DETAILED:
+		if (inputLength < sizeof(PROCESS_DETAILED_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESS_DETAILED but input buffer is too small.");
+			goto Exit;
+		}
+
+		//
+		// Verify the specified array size.
+		//
+		processDetailedRequest = RCAST<PPROCESS_DETAILED_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+		if (outputLength < MAX_PROCESS_DETAILED_REQUEST_SIZE(processDetailedRequest))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_PROCESS_DETAILED_REQUEST_SIZE(processDetailedRequest));
+			goto Exit;
+		}
+
+		IOCTLCommunication::ImageProcessFilter->PopulateProcessDetailedRequest(processDetailedRequest);
+		break;
+	case IOCTL_ADD_FILE_FILTER:
+		break;
+	case IOCTL_ADD_REGISTRY_FILTER:
+		break;
+	}
+
+Exit:
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
 

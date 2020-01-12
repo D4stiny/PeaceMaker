@@ -3,11 +3,6 @@
 #include "StackWalker.h"
 #include "shared.h"
 
-//
-// Maximum amount of STACK_RETURN_INFO to have in the process execution stack return history.
-//
-#define MAX_STACK_RETURN_HISTORY 50
-
 #define IMAGE_NAME_TAG 'nImP'
 #define PROCESS_HISTORY_TAG 'hPmP'
 #define STACK_HISTORY_TAG 'hSmP'
@@ -44,7 +39,7 @@ typedef struct ProcessHistoryEntry
 	EX_PUSH_LOCK ImageLoadHistoryLock;			// The lock protecting the linked-list of loaded images.
 } PROCESS_HISTORY_ENTRY, *PPROCESS_HISTORY_ENTRY;
 
-class ImageHistoryFilter
+typedef class ImageHistoryFilter
 {
 
 	static VOID CreateProcessNotifyRoutine (
@@ -89,4 +84,8 @@ public:
 		_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
 		_In_ USHORT MaxProcessSummaries
 		);
-};
+
+	VOID PopulateProcessDetailedRequest(
+		_Inout_ PPROCESS_DETAILED_REQUEST ProcessDetailedRequest
+		);
+} IMAGE_HISTORY_FILTER, *PIMAGE_HISTORY_FILTER;

@@ -5,6 +5,18 @@
 #include <Windows.h>
 #endif
 
+#define IOCTL_ALERTS_QUEUED			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x1, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_POP_ALERT				CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x2, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_GET_PROCESSES			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x3, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_GET_PROCESS_DETAILED	CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x4, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_ADD_FILE_FILTER		CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x5, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_ADD_REGISTRY_FILTER	CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x6, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+
+//
+// Maximum amount of STACK_RETURN_INFO to have in the process execution stack return history.
+//
+#define MAX_STACK_RETURN_HISTORY 30
+
 typedef struct ProcessSummaryEntry
 {
 	HANDLE ProcessId;				// The process id of the executed process.
@@ -25,7 +37,8 @@ typedef struct StackReturnInfo
 typedef enum AlertType
 {
 	StackViolation,
-
+	FilterViolation,
+	ParentProcessIdSpoofing
 } ALERT_TYPE;
 
 typedef enum DetectionSource
@@ -40,6 +53,7 @@ typedef enum DetectionSource
 typedef struct BaseAlertInfo
 {
 	LIST_ENTRY Entry;
+	ULONG AlertSize;
 	DETECTION_SOURCE AlertSource;
 	ALERT_TYPE AlertType;
 } BASE_ALERT_INFO, *PBASE_ALERT_INFO;
@@ -51,3 +65,49 @@ typedef struct StackViolationAlert
 	ULONG StackHistorySize;				// The length of the StackHistory array.
 	STACK_RETURN_INFO StackHistory[1];	// Variable-length array of stack history.
 } STACK_VIOLATION_ALERT, *PSTACK_VIOLATION_ALERT;
+
+//
+// How many bytes the user-mode caller must supply as its output buffer.
+//
+#define MAX_STACK_VIOLATION_ALERT_SIZE sizeof(STACK_VIOLATION_ALERT) + (MAX_STACK_RETURN_HISTORY-1) * sizeof(STACK_RETURN_INFO)
+
+typedef struct FilterViolationAlert
+{
+	BASE_ALERT_INFO AlertInformation;	// Basic alert information.
+	ULONG StackHistorySize;				// The length of the StackHistory array.
+	STACK_RETURN_INFO StackHistory[1];	// Variable-length array of stack history.
+} FILTER_VIOLATION_ALERT, *PFILTER_VIOLATION_ALERT;
+
+//
+// How many bytes the user-mode caller must supply as its output buffer.
+//
+#define MAX_FILTER_VIOLATION_ALERT_SIZE sizeof(FILTER_VIOLATION_ALERT) + (MAX_STACK_RETURN_HISTORY-1) * sizeof(STACK_RETURN_INFO)
+
+typedef struct ProcessSummaryRequest
+{
+	ULONG SkipCount;							// How many processes to skip.
+	ULONG ProcessHistorySize;					// Size of the variable-length ProcessHistory array.
+	PROCESS_SUMMARY_ENTRY ProcessHistory[1];	// Variable-length array of process history summaries.
+} PROCESS_SUMMARY_REQUEST, *PPROCESS_SUMMARY_REQUEST;
+
+#define MAX_PROCESS_SUMMARY_REQUEST_SIZE(summaryRequest) sizeof(PROCESS_SUMMARY_REQUEST) + (summaryRequest->ProcessHistorySize - 1) * sizeof(PROCESS_SUMMARY_ENTRY)
+
+typedef struct ProcessDetailedRequest
+{
+	HANDLE ProcessId;					// The process id of the executed process.
+	ULONG EpochExecutionTime;			// Process execution time in seconds since 1970.
+	BOOLEAN Populated;					// Whether not this structure was populated (the process was found).
+
+	WCHAR ProcessPath[MAX_PATH];		// The image file name of the executed process.
+
+	HANDLE CallerProcessId;				// The process id of the caller process.
+	WCHAR CallerProcessPath[MAX_PATH];	// OPTIONAL: The image file name of the caller process.
+
+	HANDLE ParentProcessId;				// The process id of the alleged parent process.
+	WCHAR ParentProcessPath[MAX_PATH];	// OPTIONAL: The image file name of the alleged parent process.
+
+	ULONG StackHistorySize;				// The length of the StackHistory array.
+	STACK_RETURN_INFO StackHistory[1];	// Variable-length array of stack history.
+} PROCESS_DETAILED_REQUEST, *PPROCESS_DETAILED_REQUEST;
+
+#define MAX_PROCESS_DETAILED_REQUEST_SIZE(detailedRequest) sizeof(PROCESS_DETAILED_REQUEST) + (detailedRequest->StackHistorySize - 1) * sizeof(STACK_RETURN_INFO)

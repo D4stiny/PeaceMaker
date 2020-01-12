@@ -599,3 +599,88 @@ ImageHistoryFilter::GetProcessHistorySummary (
 
 	return actualFilledSummaries;
 }
+
+/**
+	Populate a request for detailed information on a process.
+	@param ProcessDetailedRequest - The request to populate.
+*/
+VOID
+ImageHistoryFilter::PopulateProcessDetailedRequest (
+	_Inout_ PPROCESS_DETAILED_REQUEST ProcessDetailedRequest
+	)
+{
+	NTSTATUS status;
+	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+
+	if (ImageHistoryFilter::destroying)
+	{
+		return;
+	}
+
+	//
+	// Acquire a shared lock to iterate processes.
+	//
+	FltAcquirePushLockShared(&ImageHistoryFilter::ProcessHistoryLock);
+
+	if (ImageHistoryFilter::ProcessHistoryHead)
+	{
+		currentProcessHistory = ImageHistoryFilter::ProcessHistoryHead;
+		do
+		{
+			if (ProcessDetailedRequest->ProcessId == currentProcessHistory->ProcessId &&
+				ProcessDetailedRequest->EpochExecutionTime == currentProcessHistory->EpochExecutionTime)
+			{
+				//
+				// Set basic fields.
+				//
+				ProcessDetailedRequest->Populated = TRUE;
+				ProcessDetailedRequest->CallerProcessId = currentProcessHistory->CallerId;
+				ProcessDetailedRequest->ParentProcessId = currentProcessHistory->ParentId;
+
+				//
+				// Copy the stack history.
+				//
+				ProcessDetailedRequest->StackHistorySize = (ProcessDetailedRequest->StackHistorySize > currentProcessHistory->CallerStackHistorySize) ? currentProcessHistory->CallerStackHistorySize : ProcessDetailedRequest->StackHistorySize;
+				memcpy(ProcessDetailedRequest->StackHistory, currentProcessHistory->CallerStackHistory, ProcessDetailedRequest->StackHistorySize * sizeof(STACK_RETURN_INFO));
+
+				//
+				// Copy the paths.
+				//
+				if (currentProcessHistory->ProcessImageFileName)
+				{
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ProcessPath), MAX_PATH, currentProcessHistory->ProcessImageFileName);
+					if (NT_SUCCESS(status) == FALSE)
+					{
+						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the process with status 0x%X.", status);
+						break;
+					}
+				}
+				if (currentProcessHistory->CallerImageFileName)
+				{
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->CallerProcessPath), MAX_PATH, currentProcessHistory->CallerImageFileName);
+					if (NT_SUCCESS(status) == FALSE)
+					{
+						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the caller with status 0x%X.", status);
+						break;
+					}
+				}
+				if (currentProcessHistory->ParentImageFileName)
+				{
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ParentProcessPath), MAX_PATH, currentProcessHistory->ParentImageFileName);
+					if (NT_SUCCESS(status) == FALSE)
+					{
+						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the parent with status 0x%X.", status);
+						break;
+					}
+				}
+				break;
+			}
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
+		} while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead);
+	}
+
+	//
+	// Release the lock.
+	//
+	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+}

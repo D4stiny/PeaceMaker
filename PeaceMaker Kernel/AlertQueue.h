@@ -25,6 +25,10 @@ public:
 		VOID
 		);
 
+	VOID FreeAlert (
+		_In_ PBASE_ALERT_INFO Alert
+		);
+
 } ALERT_QUEUE, *PALERT_QUEUE;
 
 #define ALERT_LOCK_TAG 'lAmP'

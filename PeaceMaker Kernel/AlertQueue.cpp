@@ -60,7 +60,13 @@ AlertQueue::PushAlert (
 	// Allocate space for the new alert and copy the details.
 	//
 	newAlert = RCAST<PBASE_ALERT_INFO>(ExAllocatePoolWithTag(PagedPool, AlertSize, ALERT_QUEUE_ENTRY_TAG));
+	if (newAlert == NULL)
+	{
+		DBGPRINT("AlertQueue!PushAlert: Failed to allocate space for new alert.");
+		return;
+	}
 	memcpy(newAlert, Alert, AlertSize);
+	newAlert->AlertSize = AlertSize;
 
 	//
 	// Queue the alert.
@@ -101,4 +107,17 @@ AlertQueue::IsQueueEmpty (
 	ExReleaseSpinLock(this->alertsLock, oldIrql);
 
 	return empty;
+}
+
+
+/**
+	Free a previously pop'd alert.
+	@param Alert - The alert to free.
+*/
+VOID
+AlertQueue::FreeAlert(
+	_In_ PBASE_ALERT_INFO Alert
+	)
+{
+	ExFreePoolWithTag(Alert, ALERT_QUEUE_ENTRY_TAG);
 }
