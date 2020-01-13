@@ -34,6 +34,16 @@ ImageHistoryFilter::ImageHistoryFilter (
 	}
 
 	FltInitializePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+
+	ImageHistoryFilter::ProcessHistoryHead = RCAST<PPROCESS_HISTORY_ENTRY>(ExAllocatePoolWithTag(PagedPool, sizeof(PROCESS_HISTORY_ENTRY), PROCESS_HISTORY_TAG));
+	if (ImageHistoryFilter::ProcessHistoryHead == NULL)
+	{
+		DBGPRINT("ImageHistoryFilter!ImageHistoryFilter: Failed to allocate the process history head.");
+		*InitializeStatus = STATUS_NO_MEMORY;
+		return;
+	}
+	memset(ImageHistoryFilter::ProcessHistoryHead, 0, sizeof(PROCESS_HISTORY_ENTRY));
+	InitializeListHead(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead));
 }
 
 /**
@@ -80,7 +90,7 @@ ImageHistoryFilter::~ImageHistoryFilter (
 		while (IsListEmpty(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead)) == FALSE)
 		{
 			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(RemoveHeadList(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead)));
-
+			DBGPRINT("currentProcessHistory = 0x%llx", currentProcessHistory);
 			//
 			// Clear the images linked-list.
 			//
@@ -234,6 +244,16 @@ ImageHistoryFilter::AddProcessToHistory (
 		goto Exit;
 	}
 
+	newProcessHistory->ImageLoadHistory = RCAST<PIMAGE_LOAD_HISTORY_ENTRY>(ExAllocatePoolWithTag(PagedPool, sizeof(IMAGE_LOAD_HISTORY_ENTRY), IMAGE_HISTORY_TAG));
+	if (newProcessHistory->ImageLoadHistory == NULL)
+	{
+		DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to allocate space for the image load history.");
+		status = STATUS_NO_MEMORY;
+		goto Exit;
+	}
+	memset(newProcessHistory->ImageLoadHistory, 0, sizeof(IMAGE_LOAD_HISTORY_ENTRY));
+	InitializeListHead(RCAST<PLIST_ENTRY>(newProcessHistory->ImageLoadHistory));
+
 	//
 	// Initialize this last so we don't have to delete it if anything failed.
 	//
@@ -244,21 +264,7 @@ ImageHistoryFilter::AddProcessToHistory (
 	//
 	FltAcquirePushLockExclusive(&ImageHistoryFilter::ProcessHistoryLock);
 
-	//
-	// Check if the list has been initialized.
-	//
-	if (ImageHistoryFilter::ProcessHistoryHead == NULL)
-	{
-		ImageHistoryFilter::ProcessHistoryHead = newProcessHistory;
-		InitializeListHead(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead));
-	}
-	//
-	// Otherwise, just append the element to the end of the list.
-	//
-	else
-	{
-		InsertTailList(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead), RCAST<PLIST_ENTRY>(newProcessHistory));
-	}
+	InsertTailList(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead), RCAST<PLIST_ENTRY>(newProcessHistory));
 
 	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
 Exit:
@@ -482,7 +488,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	//
 	// This might happen if we load on a running machine that already has processes.
 	//
-	if (currentProcessHistory == NULL)
+	if (currentProcessHistory == NULL || currentProcessHistory == ImageHistoryFilter::ProcessHistoryHead)
 	{
 		DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine: Failed to find PID 0x%X in history.", ProcessId);
 		status = STATUS_NOT_FOUND;
@@ -548,23 +554,9 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 
 
 	FltAcquirePushLockExclusive(&currentProcessHistory->ImageLoadHistoryLock);
-	DBGPRINT("Adding 0x%llx.", newImageLoadHistory);
+	DBGPRINT("Adding 0x%llx to 0x%llx.", newImageLoadHistory, currentProcessHistory);
 
-	//
-	// Check if the list has been initialized.
-	//
-	if (currentProcessHistory->ImageLoadHistory == NULL)
-	{
-		currentProcessHistory->ImageLoadHistory = newImageLoadHistory;
-		InitializeListHead(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory));
-	}
-	//
-	// Otherwise, just append the element to the end of the list.
-	//
-	else
-	{
-		InsertHeadList(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory), RCAST<PLIST_ENTRY>(newImageLoadHistory));
-	}
+	InsertHeadList(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory), RCAST<PLIST_ENTRY>(newImageLoadHistory));
 
 	FltReleasePushLock(&currentProcessHistory->ImageLoadHistoryLock);
 Exit:
