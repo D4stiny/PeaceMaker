@@ -29,6 +29,12 @@
     <Filter Include="Source Files\Utilities">
       <UniqueIdentifier>{b653583e-a15b-446e-85e9-7f8cceecae8c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Core">
+      <UniqueIdentifier>{67667525-d9bd-4041-8ca5-f90fe95a4741}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{bbb90d1c-ab67-44c2-a036-5847843b131f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Inf Include="PeaceMaker Kernel.inf">
@@ -62,10 +68,13 @@
     <ClCompile Include="StringFilters.cpp">
       <Filter>Source Files\Utilities</Filter>
     </ClCompile>
-    <ClCompile Include="AlertQueue.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="DetectionLogic.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="IOCTLCommunication.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="AlertQueue.cpp">
       <Filter>Source Files\Utilities</Filter>
     </ClCompile>
   </ItemGroup>
@@ -98,7 +107,10 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DetectionLogic.h">
-      <Filter>Header Files\Utilities</Filter>
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="IOCTLCommunication.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

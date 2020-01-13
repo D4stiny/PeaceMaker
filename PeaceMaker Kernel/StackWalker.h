@@ -11,9 +11,10 @@ typedef class StackWalker
 public:
 	StackWalker() {};
 	
-	ULONG WalkAndResolveStack (
-		_Inout_ STACK_RETURN_INFO ResolvedStack[],
-		 _In_ ULONG ResolvedStackSize
+	VOID WalkAndResolveStack (
+		_Inout_ PSTACK_RETURN_INFO* ResolvedStack,
+		_Inout_ ULONG* ResolvedStackSize,
+		_In_ ULONG ResolvedStackTag
 		);
 
 	VOID ResolveAddressModule (

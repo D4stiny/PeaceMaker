@@ -5,7 +5,9 @@
 */
 AlertQueue::AlertQueue()
 {
-	this->alertsLock = RCAST<PKSPIN_LOCK>(ExAllocatePoolWithTag(NonPagedPoolNx, sizeof(KSPIN_LOCK), ALERT_LOCK_TAG));
+	this->alertsLock = RCAST<PKSPIN_LOCK>(ExAllocatePoolWithTag(NonPagedPool, sizeof(KSPIN_LOCK), ALERT_LOCK_TAG));
+	NT_ASSERT(this->alertsLock);
+	this->destroying = FALSE;
 	KeInitializeSpinLock(this->alertsLock);
 	InitializeListHead(RCAST<PLIST_ENTRY>(&this->alertsHead));
 }

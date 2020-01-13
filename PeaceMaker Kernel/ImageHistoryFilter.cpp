@@ -44,6 +44,7 @@ ImageHistoryFilter::~ImageHistoryFilter (
 	)
 {
 	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+	PIMAGE_LOAD_HISTORY_ENTRY currentImageEntry;
 
 	//
 	// Set destroying to TRUE so that no other threads can get a lock.
@@ -80,23 +81,74 @@ ImageHistoryFilter::~ImageHistoryFilter (
 		{
 			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(RemoveHeadList(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead)));
 
+			//
+			// Clear the images linked-list.
+			//
+			FltDeletePushLock(&currentProcessHistory->ImageLoadHistoryLock);
+			if (currentProcessHistory->ImageLoadHistory)
+			{
+				while (IsListEmpty(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory)) == FALSE)
+				{
+					currentImageEntry = RCAST<PIMAGE_LOAD_HISTORY_ENTRY>(RemoveHeadList(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory)));
 
+					//
+					// Free the image name.
+					//
+					if (currentImageEntry->ImageFileName.Buffer)
+					{
+						ExFreePoolWithTag(currentImageEntry->ImageFileName.Buffer, IMAGE_NAME_TAG);
+						DBGPRINT("Freed 'PmIn' at 0x%llx.", currentImageEntry->ImageFileName.Buffer);
+					}
+
+					//
+					// Free the stack history.
+					//
+					ExFreePoolWithTag(currentImageEntry->CallerStackHistory, STACK_HISTORY_TAG);
+					DBGPRINT("Freed 'PmSh' at 0x%llx.", currentImageEntry->CallerStackHistory);
+
+					ExFreePoolWithTag(currentImageEntry, IMAGE_HISTORY_TAG);
+					DBGPRINT("Freed 'PmIh' at 0x%llx.", currentImageEntry);
+				}
+
+				//
+				// Finally, free the list head.
+				//
+				ExFreePoolWithTag(currentProcessHistory->ImageLoadHistory, IMAGE_HISTORY_TAG);
+				DBGPRINT("Freed 'PmIh' head at 0x%llx.", currentProcessHistory->ImageLoadHistory);
+			}
+
+
+			//
+			// Free the names.
+			//
+			if (currentProcessHistory->ProcessImageFileName)
+			{
+				ExFreePoolWithTag(currentProcessHistory->ProcessImageFileName, IMAGE_NAME_TAG);
+			}
+			if (currentProcessHistory->CallerImageFileName)
+			{
+				ExFreePoolWithTag(currentProcessHistory->CallerImageFileName, IMAGE_NAME_TAG);
+			}
+			if (currentProcessHistory->ParentImageFileName)
+			{
+				ExFreePoolWithTag(currentProcessHistory->ParentImageFileName, IMAGE_NAME_TAG);
+			}
 
 			//
 			// Free the stack history.
 			//
-			ExFreePoolWithTag(RCAST<PVOID>(currentProcessHistory->CallerStackHistory), STACK_HISTORY_TAG);
+			ExFreePoolWithTag(currentProcessHistory->CallerStackHistory, STACK_HISTORY_TAG);
 
 			//
 			// Free the process history.
 			//
-			ExFreePoolWithTag(SCAST<PVOID>(currentProcessHistory), PROCESS_HISTORY_TAG);
+			ExFreePoolWithTag(currentProcessHistory, PROCESS_HISTORY_TAG);
 		}
 
 		//
 		// Finally, free the list head.
 		//
-		ExFreePoolWithTag(SCAST<PVOID>(ImageHistoryFilter::ProcessHistoryHead), PROCESS_HISTORY_TAG);
+		ExFreePoolWithTag(ImageHistoryFilter::ProcessHistoryHead, PROCESS_HISTORY_TAG);
 	}
 }
 
@@ -115,7 +167,6 @@ ImageHistoryFilter::AddProcessToHistory (
 	PPROCESS_HISTORY_ENTRY newProcessHistory;
 	LARGE_INTEGER systemTime;
 	LARGE_INTEGER localSystemTime;
-	STACK_RETURN_INFO tempStackReturns[MAX_STACK_RETURN_HISTORY];
 	BOOLEAN processHistoryLockHeld;
 
 	processHistoryLockHeld = FALSE;
@@ -133,6 +184,8 @@ ImageHistoryFilter::AddProcessToHistory (
 		status = STATUS_NO_MEMORY;
 		goto Exit;
 	}
+
+	memset(newProcessHistory, 0, sizeof(PROCESS_HISTORY_ENTRY));
 
 	//
 	// Basic fields.
@@ -163,6 +216,7 @@ ImageHistoryFilter::AddProcessToHistory (
 	// These fields are optional.
 	//
 	ImageHistoryFilter::GetProcessImageFileName(ParentId, &newProcessHistory->ParentImageFileName);
+
 	if (PsGetCurrentProcessId() != ParentId)
 	{
 		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &newProcessHistory->CallerImageFileName);
@@ -171,15 +225,14 @@ ImageHistoryFilter::AddProcessToHistory (
 	//
 	// Grab the user-mode stack.
 	//
-	newProcessHistory->CallerStackHistorySize = walker.WalkAndResolveStack(tempStackReturns, MAX_STACK_RETURN_HISTORY);
-	newProcessHistory->CallerStackHistory = RCAST<PSTACK_RETURN_INFO>(ExAllocatePoolWithTag(PagedPool, sizeof(STACK_RETURN_INFO) * newProcessHistory->CallerStackHistorySize, STACK_HISTORY_TAG));
+	newProcessHistory->CallerStackHistorySize = MAX_STACK_RETURN_HISTORY; // Will be updated in the resolve function.
+	walker.WalkAndResolveStack(&newProcessHistory->CallerStackHistory, &newProcessHistory->CallerStackHistorySize, STACK_HISTORY_TAG);
 	if (newProcessHistory->CallerStackHistory == NULL)
 	{
 		DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to allocate space for the stack history.");
 		status = STATUS_NO_MEMORY;
 		goto Exit;
 	}
-	memcpy(newProcessHistory->CallerStackHistory, tempStackReturns, sizeof(STACK_RETURN_INFO) * newProcessHistory->CallerStackHistorySize);
 
 	//
 	// Initialize this last so we don't have to delete it if anything failed.
@@ -281,9 +334,11 @@ ImageHistoryFilter::CreateProcessNotifyRoutine (
 	if (Create)
 	{
 		ImageHistoryFilter::AddProcessToHistory(ProcessId, ParentId);
+		DBGPRINT("ImageHistoryFilter!CreateProcessNotifyRoutine: Registered process 0x%X.", ProcessId);
 	}
 	else
 	{
+		DBGPRINT("ImageHistoryFilter!CreateProcessNotifyRoutine: Terminating process 0x%X.", ProcessId);
 		//
 		// Set the process as "terminated".
 		//
@@ -354,7 +409,7 @@ ImageHistoryFilter::GetProcessImageFileName (
 	//
 	// Query the image file name.
 	//
-	status = NtQueryInformationProcess(processHandle, ProcessImageFileName, NULL, 0, &returnLength);
+	status = NtQueryInformationProcess(processHandle, ProcessImageFileName, *ImageFileName, returnLength, &returnLength);
 	if (NT_SUCCESS(status) == FALSE)
 	{
 		DBGPRINT("ImageHistoryFilter!GetProcessImageFileName: Failed to query process ImageFileName with status 0x%X.", status);
@@ -389,7 +444,6 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	NTSTATUS status;
 	PPROCESS_HISTORY_ENTRY currentProcessHistory;
 	PIMAGE_LOAD_HISTORY_ENTRY newImageLoadHistory;
-	STACK_RETURN_INFO tempStackReturns[MAX_STACK_RETURN_HISTORY];
 
 	UNREFERENCED_PARAMETER(ImageInfo);
 
@@ -401,6 +455,8 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	{
 		return;
 	}
+
+	DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine(0x%X): Registering image %wZ.", ProcessId, FullImageName);
 
 	//
 	// Acquire a shared lock to iterate processes.
@@ -415,7 +471,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 		currentProcessHistory = ImageHistoryFilter::ProcessHistoryHead;
 		do
 		{
-			if (currentProcessHistory->ProcessId == ProcessId)
+			if (currentProcessHistory->ProcessId == ProcessId && currentProcessHistory->ProcessTerminated == FALSE)
 			{
 				break;
 			}
@@ -429,6 +485,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	if (currentProcessHistory == NULL)
 	{
 		DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine: Failed to find PID 0x%X in history.", ProcessId);
+		status = STATUS_NOT_FOUND;
 		goto Exit;
 	}
 
@@ -442,6 +499,9 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 		status = STATUS_NO_MEMORY;
 		goto Exit;
 	}
+	memset(newImageLoadHistory, 0, sizeof(IMAGE_LOAD_HISTORY_ENTRY));
+
+	DBGPRINT("Alloc 'PmIh' at 0x%llx.", newImageLoadHistory);
 
 	//
 	// Copy the image file name if it is provided.
@@ -451,7 +511,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 		//
 		// Allocate the copy buffer. FullImageName will not be valid forever.
 		//
-		newImageLoadHistory->ImageFileName.Buffer = RCAST<PWCH>(ExAllocatePoolWithTag(PagedPool, FullImageName->Length + 1, IMAGE_NAME_TAG));
+		newImageLoadHistory->ImageFileName.Buffer = RCAST<PWCH>(ExAllocatePoolWithTag(PagedPool, SCAST<SIZE_T>(FullImageName->Length) + 2, IMAGE_NAME_TAG));
 		if (newImageLoadHistory->ImageFileName.Buffer == NULL)
 		{
 			DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine: Failed to allocate space for the image file name.");
@@ -459,16 +519,16 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 			goto Exit;
 		}
 
-		newImageLoadHistory->ImageFileName.Length = FullImageName->Length + 1;
-		newImageLoadHistory->ImageFileName.MaximumLength = FullImageName->Length + 1;
+		newImageLoadHistory->ImageFileName.Length = SCAST<SIZE_T>(FullImageName->Length) + 2;
+		newImageLoadHistory->ImageFileName.MaximumLength = SCAST<SIZE_T>(FullImageName->Length) + 2;
 
 		//
 		// Copy the image name.
 		//
-		status = RtlStringCbCopyUnicodeString(newImageLoadHistory->ImageFileName.Buffer, FullImageName->Length + 1, FullImageName);
+		status = RtlStringCbCopyUnicodeString(newImageLoadHistory->ImageFileName.Buffer, SCAST<SIZE_T>(FullImageName->Length) + 2, FullImageName);
 		if (NT_SUCCESS(status) == FALSE)
 		{
-			DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine: Failed to copy the image file name with status 0x%X.", status);
+			DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine: Failed to copy the image file name with status 0x%X. Destination size = 0x%X, Source Size = 0x%X.", status, SCAST<SIZE_T>(FullImageName->Length) + 2, SCAST<SIZE_T>(FullImageName->Length));
 			goto Exit;
 		}
 	}
@@ -476,17 +536,19 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	//
 	// Grab the user-mode stack.
 	//
-	newImageLoadHistory->CallerStackHistorySize = walker.WalkAndResolveStack(tempStackReturns, MAX_STACK_RETURN_HISTORY);
-	newImageLoadHistory->CallerStackHistory = RCAST<PSTACK_RETURN_INFO>(ExAllocatePoolWithTag(PagedPool, sizeof(STACK_RETURN_INFO) * newImageLoadHistory->CallerStackHistorySize, STACK_HISTORY_TAG));
+	newImageLoadHistory->CallerStackHistorySize = MAX_STACK_RETURN_HISTORY; // Will be updated in the resolve function.
+	walker.WalkAndResolveStack(&newImageLoadHistory->CallerStackHistory, &newImageLoadHistory->CallerStackHistorySize, STACK_HISTORY_TAG);
 	if (newImageLoadHistory->CallerStackHistory == NULL)
 	{
 		DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine: Failed to allocate space for the stack history.");
 		status = STATUS_NO_MEMORY;
 		goto Exit;
 	}
-	memcpy(newImageLoadHistory->CallerStackHistory, tempStackReturns, sizeof(STACK_RETURN_INFO) * newImageLoadHistory->CallerStackHistorySize);
+	DBGPRINT("Alloc 'PmSh' at 0x%llx.", newImageLoadHistory->CallerStackHistory);
+
 
 	FltAcquirePushLockExclusive(&currentProcessHistory->ImageLoadHistoryLock);
+	DBGPRINT("Adding 0x%llx.", newImageLoadHistory);
 
 	//
 	// Check if the list has been initialized.
@@ -501,7 +563,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	//
 	else
 	{
-		InsertTailList(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory), RCAST<PLIST_ENTRY>(newImageLoadHistory));
+		InsertHeadList(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory), RCAST<PLIST_ENTRY>(newImageLoadHistory));
 	}
 
 	FltReleasePushLock(&currentProcessHistory->ImageLoadHistoryLock);
@@ -519,8 +581,15 @@ Exit:
 		if (newImageLoadHistory->ImageFileName.Buffer)
 		{
 			ExFreePoolWithTag(newImageLoadHistory->ImageFileName.Buffer, IMAGE_NAME_TAG);
+			DBGPRINT("Free'd 'PmIn' at 0x%llx.", newImageLoadHistory->ImageFileName.Buffer);
+		}
+		if (newImageLoadHistory->CallerStackHistory)
+		{
+			ExFreePoolWithTag(newImageLoadHistory->CallerStackHistory, STACK_HISTORY_TAG);
+			DBGPRINT("Free'd 'PmSh' at 0x%llx.", newImageLoadHistory->CallerStackHistory);
 		}
 		ExFreePoolWithTag(newImageLoadHistory, IMAGE_HISTORY_TAG);
+		DBGPRINT("Free'd 'PmIh' at 0x%llx.", newImageLoadHistory);
 	}
 }
 
@@ -531,16 +600,16 @@ Exit:
 	@param MaxProcessSumaries - Maximum number of process summaries that the array allows for.
 	@return The actual number of summaries returned.
 */
-USHORT
+ULONG
 ImageHistoryFilter::GetProcessHistorySummary (
-	_In_ USHORT SkipCount,
+	_In_ ULONG SkipCount,
 	_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
-	_In_ USHORT MaxProcessSummaries
+	_In_ ULONG MaxProcessSummaries
 	)
 {
 	PPROCESS_HISTORY_ENTRY currentProcessHistory;
-	USHORT currentProcessIndex;
-	USHORT actualFilledSummaries;
+	ULONG currentProcessIndex;
+	ULONG actualFilledSummaries;
 	NTSTATUS status;
 
 	currentProcessIndex = 0;

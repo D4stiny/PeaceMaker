@@ -9,8 +9,8 @@
 #define IOCTL_POP_ALERT				CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x2, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 #define IOCTL_GET_PROCESSES			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x3, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 #define IOCTL_GET_PROCESS_DETAILED	CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x4, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
-#define IOCTL_ADD_FILE_FILTER		CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x5, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
-#define IOCTL_ADD_REGISTRY_FILTER	CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x6, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_ADD_FILTER			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x5, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_LIST_FILTERS			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x6, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 
 //
 // Maximum amount of STACK_RETURN_INFO to have in the process execution stack return history.
@@ -111,3 +111,43 @@ typedef struct ProcessDetailedRequest
 } PROCESS_DETAILED_REQUEST, *PPROCESS_DETAILED_REQUEST;
 
 #define MAX_PROCESS_DETAILED_REQUEST_SIZE(detailedRequest) sizeof(PROCESS_DETAILED_REQUEST) + (detailedRequest->StackHistorySize - 1) * sizeof(STACK_RETURN_INFO)
+
+typedef enum FilterType
+{
+	FilesystemFilter,
+	RegistryFilter
+} STRING_FILTER_TYPE, *PSTRING_FILTER_TYPE;
+
+//
+// Bitwise flags used for filtering for specific filters.
+//
+#define FILTER_FLAG_DELETE 0x1
+#define FILTER_FLAG_WRITE 0x2
+#define FILTER_FLAG_EXECUTE 0x4
+
+#define FILTER_FLAG_ALL (FILTER_FLAG_DELETE | FILTER_FLAG_WRITE | FILTER_FLAG_EXECUTE)
+
+typedef struct StringFilterRequest
+{
+	STRING_FILTER_TYPE FilterType;	// The general target of the filter (Filesystem/Registry).
+	ULONG FilterId;					// Populated if filter successfully added.
+	ULONG FilterFlags;				// Flags specifying what operations to filter (EXECUTE/WRITE/DELETE).
+	ULONG FilterSize;				// The length of the filter.
+	WCHAR FilterContent[MAX_PATH];	// The new filter to add.
+} STRING_FILTER_REQUEST, *PSTRING_FILTER_REQUEST;
+
+typedef struct FilterInfo
+{
+	ULONG Id;						// Unique ID of the filter used to remove entries.
+	WCHAR MatchString[MAX_PATH];	// The string to match against. Always lowercase.
+	ULONG Flags;					// Used by MatchesFilter to determine if should use filter. Caller specifies the filters they want via flag.
+} FILTER_INFO, *PFILTER_INFO;
+
+typedef struct ListFiltersRequest
+{
+	STRING_FILTER_TYPE FilterType;	// The general target of the filter (Filesystem/Registry).
+	ULONG TotalFilters;				// Populated by the IOCTL request. The number of total filters there really are.
+	ULONG SkipFilters;				// Number of filters to skip.
+	ULONG CopiedFilters;			// Populated by the IOCTL request. Number of filters actually copied.
+	FILTER_INFO Filters[10];		// You can request more than 10 filters via multiple requests.
+} LIST_FILTERS_REQUEST, *PLIST_FILTERS_REQUEST;

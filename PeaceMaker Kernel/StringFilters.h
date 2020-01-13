@@ -1,28 +1,16 @@
 #pragma once
 #include "common.h"
+#include "shared.h"
 
-#define FILTER_INFO_TAG 'iFmP'
-
-//
-// Bitwise flags used for filtering for specific filters.
-//
-#define FILTER_FLAG_DELETE 0x1
-#define FILTER_FLAG_WRITE 0x2
-#define FILTER_FLAG_EXECUTE 0x4
-
-#define FILTER_FLAG_ALL (FILTER_FLAG_DELETE | FILTER_FLAG_WRITE | FILTER_FLAG_EXECUTE)
-
-typedef struct FILTER_INFO
+typedef struct FilterInfoLinked
 {
-	LIST_ENTRY ListEntry;			// The list entry used to iterate multiple filters.
-	ULONG Id;						// Unique ID of the filter used to remove entries.
-	WCHAR MatchString[MAX_PATH];	// The string to match against. Always lowercase.
-	ULONG Flags;					// Used by MatchesFilter to determine if should use filter. Caller specifies the filters they want via flag.
-} FILTERINFO, *PFILTERINFO;
+	LIST_ENTRY ListEntry;	// The list entry used to iterate multiple filters.
+	FILTER_INFO Filter;		// The filter itself.
+} FILTER_INFO_LINKED, *PFILTER_INFO_LINKED;
 
 typedef class StringFilters
 {
-	PFILTERINFO filtersHead; // The linked list of filters.
+	PFILTER_INFO_LINKED filtersHead; // The linked list of filters.
 	EX_PUSH_LOCK filtersLock; // The lock protecting the linked list of filters.
 	BOOLEAN destroying; // This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
 
@@ -30,9 +18,23 @@ public:
 	StringFilters();
 	~StringFilters();
 
-	ULONG AddFilter(WCHAR* MatchString, ULONG OperationFlag);
-	BOOLEAN RemoveFilter(ULONG FilterId);
+	ULONG AddFilter(
+		_In_ WCHAR* MatchString,
+		_In_ ULONG OperationFlag
+		);
+	BOOLEAN RemoveFilter(
+		_In_ ULONG FilterId
+		);
+	ULONG GetFilters(
+		_In_ ULONG SkipFilters,
+		_Inout_ FILTER_INFO Filters[],
+		_In_ ULONG FiltersSize
+		);
 
-	BOOLEAN MatchesFilter(WCHAR* StrToCmp, ULONG OperationFlag);
+	BOOLEAN MatchesFilter(
+		_In_ WCHAR* StrToCmp,
+		_In_ ULONG OperationFlag
+		);
 } STRING_FILTERS, *PSTRING_FILTERS;
 
+#define FILTER_INFO_TAG 'iFmP'

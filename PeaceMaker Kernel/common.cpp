@@ -27,13 +27,13 @@ NTSTATUS NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS Proces
 {
 	UNICODE_STRING funcName;
 	typedef NTSTATUS(NTAPI* NtQueryInformationProcess_t)(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass, PVOID ProcessInformation, ULONG ProcessInformationLength, PULONG ReturnLength);
-	static NtQueryInformationProcess_t fNtQuerySystemInformation = NULL;
+	static NtQueryInformationProcess_t fNtQueryInformationProcess = NULL;
 
-	if (fNtQuerySystemInformation == NULL)
+	if (fNtQueryInformationProcess == NULL)
 	{
-		RtlInitUnicodeString(&funcName, L"NtQuerySystemInformation");
-		fNtQuerySystemInformation = RCAST<NtQueryInformationProcess_t>(MmGetSystemRoutineAddress(&funcName));
+		RtlInitUnicodeString(&funcName, L"ZwQueryInformationProcess");
+		fNtQueryInformationProcess = RCAST<NtQueryInformationProcess_t>(MmGetSystemRoutineAddress(&funcName));
 	}
 
-	return fNtQuerySystemInformation(ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
+	return fNtQueryInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
 }

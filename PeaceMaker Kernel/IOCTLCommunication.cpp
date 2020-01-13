@@ -1,15 +1,23 @@
 #include "IOCTLCommunication.h"
 
+PDRIVER_OBJECT IOCTLCommunication::DriverObject;
+PDETECTION_LOGIC IOCTLCommunication::Detector;
+PIMAGE_HISTORY_FILTER IOCTLCommunication::ImageProcessFilter;
+PFLT_FILTER IOCTLCommunication::FileFilterHandle;
+PFS_BLOCKING_FILTER IOCTLCommunication::FilesystemMonitor;
+PREGISTRY_BLOCKING_FILTER IOCTLCommunication::RegistryMonitor;
+
 /**
 	Construct the IOCTLCommunication class by initializing the driver object and detector.
 	@param DriverObject - The driver's object.
 */
 IOCTLCommunication::IOCTLCommunication (
-	_In_ PDRIVER_OBJECT DriverObject,
+	_In_ PDRIVER_OBJECT Driver,
+	_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
 	_Inout_ NTSTATUS* InitializeStatus
 	)
 {
-	this->DriverObject = DriverObject;
+	this->DriverObject = Driver;
 
 	*InitializeStatus = STATUS_SUCCESS;
 
@@ -37,6 +45,20 @@ IOCTLCommunication::IOCTLCommunication (
 		return;
 	}
 
+	FilesystemMonitor = new (NonPagedPool, FILE_MONITOR_TAG) FSBlockingFilter(DriverObject, UnloadRoutine, InitializeStatus, &FileFilterHandle);
+	if (NT_SUCCESS(*InitializeStatus) == FALSE)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize the filesystem blocking filter with status 0x%X.", *InitializeStatus);
+		return;
+	}
+
+	RegistryMonitor = new (NonPagedPool, REGISTRY_MONITOR_TAG) RegistryBlockingFilter(DriverObject, InitializeStatus);
+	if (NT_SUCCESS(*InitializeStatus) == FALSE)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize the registry blocking filter with status 0x%X.", *InitializeStatus);
+		return;
+	}
+
 	InitializeDriverIOCTL();
 }
 
@@ -53,6 +75,14 @@ IOCTLCommunication::~IOCTLCommunication	(
 	this->ImageProcessFilter->~ImageHistoryFilter();
 	ExFreePoolWithTag(this->ImageProcessFilter, IMAGE_HISTORY_FILTER_TAG);
 
+	FltUnregisterFilter(FileFilterHandle);
+
+	this->FilesystemMonitor->~FSBlockingFilter();
+	ExFreePoolWithTag(this->FilesystemMonitor, FILE_MONITOR_TAG);
+
+	this->RegistryMonitor->~RegistryBlockingFilter();
+	ExFreePoolWithTag(this->RegistryMonitor, REGISTRY_MONITOR_TAG);
+
 	UninitializeDriverIOCTL();
 }
 
@@ -68,8 +98,6 @@ IOCTLCommunication::IOCTLCreateClose (
 	)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
-
-	PAGED_CODE();
 
 	//
 	// Just accept everyone for now.
@@ -94,6 +122,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 	_In_ PIRP Irp
 	)
 {
+	NTSTATUS status;
 	PIO_STACK_LOCATION irpStackLocation;
 	ULONG ioctlCode;
 	ULONG inputLength;
@@ -102,11 +131,14 @@ IOCTLCommunication::IOCTLDeviceControl (
 	PBASE_ALERT_INFO poppedAlert;
 	PPROCESS_SUMMARY_REQUEST processSummaryRequest;
 	PPROCESS_DETAILED_REQUEST processDetailedRequest;
-	ULONG maxSummaryCount;
+	PSTRING_FILTER_REQUEST filterAddRequest;
+	PLIST_FILTERS_REQUEST listFiltersRequest;
+
+	WCHAR temporaryFilterBuffer[MAX_PATH];
 
 	UNREFERENCED_PARAMETER(DeviceObject);
-	PAGED_CODE();
 
+	status = STATUS_SUCCESS;
 	irpStackLocation = IoGetCurrentIrpStackLocation(Irp);
 
 	//
@@ -192,17 +224,82 @@ IOCTLCommunication::IOCTLDeviceControl (
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_PROCESS_DETAILED_REQUEST_SIZE(processDetailedRequest));
 			goto Exit;
 		}
-
+		
+		//
+		// Populate the detailed request.
+		//
 		IOCTLCommunication::ImageProcessFilter->PopulateProcessDetailedRequest(processDetailedRequest);
 		break;
-	case IOCTL_ADD_FILE_FILTER:
+	case IOCTL_ADD_FILTER:
+		//
+		// Validate the size of the input and output buffers.
+		//
+		if (inputLength < sizeof(STRING_FILTER_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_ADD_FILTER but input buffer is too small.");
+			goto Exit;
+		}
+		if (outputLength < sizeof(STRING_FILTER_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_ADD_FILTER but output buffer is too small.");
+			goto Exit;
+		}
+
+		filterAddRequest = RCAST<PSTRING_FILTER_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+
+		//
+		// Copy the filter content to a temporary string (ensures null-terminator).
+		//
+		status = RtlStringCchCopyNW(temporaryFilterBuffer, MAX_PATH, filterAddRequest->FilterContent, MAX_PATH);
+		if (NT_SUCCESS(status) == FALSE)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Failed to copy filter content to temporary buffer with status 0x%X.", status);
+			goto Exit;
+		}
+
+		//
+		// Depending on the type of filter, add the string.
+		//
+		switch (filterAddRequest->FilterType)
+		{
+		case FilesystemFilter:
+			filterAddRequest->FilterId = FilesystemMonitor->GetStringFilters()->AddFilter(temporaryFilterBuffer, filterAddRequest->FilterFlags);
+			break;
+		case RegistryFilter:
+			filterAddRequest->FilterId = RegistryMonitor->GetStringFilters()->AddFilter(temporaryFilterBuffer, filterAddRequest->FilterFlags);
+			break;
+		}
 		break;
-	case IOCTL_ADD_REGISTRY_FILTER:
+	case IOCTL_LIST_FILTERS:
+		//
+		// Validate the size of the input and output buffers.
+		//
+		if (inputLength < sizeof(LIST_FILTERS_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_LIST_FILTERS but input buffer is too small.");
+			goto Exit;
+		}
+		if (outputLength < sizeof(LIST_FILTERS_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_LIST_FILTERS but output buffer is too small.");
+			goto Exit;
+		}
+
+		listFiltersRequest = RCAST<PLIST_FILTERS_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+		switch (listFiltersRequest->FilterType)
+		{
+		case FilesystemFilter:
+			listFiltersRequest->CopiedFilters = FilesystemMonitor->GetStringFilters()->GetFilters(listFiltersRequest->SkipFilters, listFiltersRequest->Filters, 10);
+			break;
+		case RegistryFilter:
+			listFiltersRequest->CopiedFilters = RegistryMonitor->GetStringFilters()->GetFilters(listFiltersRequest->SkipFilters, listFiltersRequest->Filters, 10);
+			break;
+		}
 		break;
 	}
 
 Exit:
-	Irp->IoStatus.Status = STATUS_SUCCESS;
+	Irp->IoStatus.Status = status;
 	Irp->IoStatus.Information = 0;
 
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -227,8 +324,9 @@ IOCTLCommunication::InitializeDriverIOCTL (
 
 	//
 	// Create IO Device Object.
+	// TODO: Implement secure device creation (with secure DACL).
 	//
-	status = IoCreateDevice(DriverObject, NULL, &ioctlDeviceName, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, FALSE, &ioctlDevice);
+	status = IoCreateDevice(DriverObject, NULL, &ioctlDeviceName, FILE_DEVICE_UNKNOWN, FILE_DEVICE_SECURE_OPEN, TRUE, &ioctlDevice);
 	if (NT_SUCCESS(status) == FALSE)
 	{
 		DBGPRINT("IOCTLCommunication!InitializeDriverIOCTL: Failed to create kernel device object with error 0x%X.", status);
@@ -259,15 +357,13 @@ Exit:
 	Undo everything done in InitializeDriverObject.
 	@return The status of uninitialization.
 */
-NTSTATUS
+VOID
 IOCTLCommunication::UninitializeDriverIOCTL (
 	VOID
 	)
 {
 	PDEVICE_OBJECT deviceObject;
 	UNICODE_STRING ioctlDosDevicesName;
-
-	PAGED_CODE();
 
 	deviceObject = DriverObject->DeviceObject;
 

@@ -21,8 +21,6 @@ StringFilters::~StringFilters()
 {
 	PLIST_ENTRY currentFilter;
 
-	PAGED_CODE();
-
 	//
 	// Set destroying to TRUE so that no other threads can get a lock.
 	//
@@ -72,15 +70,13 @@ StringFilters::~StringFilters()
 */
 ULONG
 StringFilters::AddFilter (
-	WCHAR* MatchString,
-	ULONG OperationFlag
+	_In_ WCHAR* MatchString,
+	_In_ ULONG OperationFlag
 	)
 {
-	PFILTERINFO newFilter;
+	PFILTER_INFO_LINKED newFilter;
 	LARGE_INTEGER currentTime;
 	ULONG epochSeconds;
-
-	PAGED_CODE();
 
 	if (this->destroying)
 	{
@@ -95,14 +91,14 @@ StringFilters::AddFilter (
 	//
 	// Allocate space for the new filter.
 	//
-	newFilter = RCAST<PFILTERINFO>(ExAllocatePoolWithTag(NonPagedPool, sizeof(FILTERINFO), FILTER_INFO_TAG));
+	newFilter = RCAST<PFILTER_INFO_LINKED>(ExAllocatePoolWithTag(NonPagedPool, sizeof(FILTER_INFO_LINKED), FILTER_INFO_TAG));
 	if (newFilter == NULL)
 	{
 		DBGPRINT("Failed to allocate space for filter info.");
 		goto Exit;
 	}
 
-	memset(RCAST<PVOID>(newFilter), 0, sizeof(FILTERINFO));
+	memset(RCAST<PVOID>(newFilter), 0, sizeof(FILTER_INFO_LINKED));
 
 	//
 	// Check if the list has been initialized.
@@ -125,17 +121,17 @@ StringFilters::AddFilter (
 	//
 	KeQuerySystemTime(&currentTime);
 	RtlTimeToSecondsSince1970(&currentTime, &epochSeconds);
-	newFilter->Id = RtlRandomEx(&epochSeconds);
+	newFilter->Filter.Id = RtlRandomEx(&epochSeconds);
 	
 	//
 	// Copy the filter string to the new filter.
 	//
-	wcsncpy_s(newFilter->MatchString, MatchString, MAX_PATH);
+	wcsncpy_s(newFilter->Filter.MatchString, MatchString, MAX_PATH);
 
 	//
 	// Set the operation flags for this filter.
 	//
-	newFilter->Flags = OperationFlag;
+	newFilter->Filter.Flags = OperationFlag;
 Exit:
 	//
 	// New filter has been initialized, release the lock.
@@ -144,7 +140,7 @@ Exit:
 
 	if (newFilter)
 	{
-		return newFilter->Id;
+		return newFilter->Filter.Id;
 	}
 
 	//
@@ -160,13 +156,11 @@ Exit:
 */
 BOOLEAN
 StringFilters::RemoveFilter(
-	ULONG FilterId
+	_In_ ULONG FilterId
 	)
 {
 	BOOLEAN filterDeleted;
-	PFILTERINFO currentFilter;
-
-	PAGED_CODE();
+	PFILTER_INFO_LINKED currentFilter;
 
 	currentFilter = NULL;
 	filterDeleted = FALSE;
@@ -191,7 +185,7 @@ StringFilters::RemoveFilter(
 		//
 		// Check if the filter to remove is the head.
 		//
-		if (currentFilter->Id == FilterId)
+		if (currentFilter->Filter.Id == FilterId)
 		{
 			this->filtersHead = NULL;
 			goto Exit;
@@ -199,11 +193,11 @@ StringFilters::RemoveFilter(
 
 		do
 		{
-			if (currentFilter->Id == FilterId)
+			if (currentFilter->Filter.Id == FilterId)
 			{
 				break;
 			}
-			currentFilter = RCAST<PFILTERINFO>(currentFilter->ListEntry.Flink);
+			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
 		} while (currentFilter && currentFilter != this->filtersHead);
 		
 		//
@@ -240,16 +234,14 @@ Exit:
 */
 BOOLEAN
 StringFilters::MatchesFilter (
-	WCHAR* StrToCmp,
-	ULONG OperationFlag
+	_In_ WCHAR* StrToCmp,
+	_In_ ULONG OperationFlag
 	)
 {
 	BOOLEAN filterMatched;
-	PFILTERINFO currentFilter;
+	PFILTER_INFO_LINKED currentFilter;
 	WCHAR tempStrToCmp[MAX_PATH];
 	INT i;
-
-	PAGED_CODE();
 
 	filterMatched = FALSE;
 
@@ -284,16 +276,65 @@ StringFilters::MatchesFilter (
 			//
 			// Check if the string to compare contains the filter.
 			//
-			if ((currentFilter->Flags & OperationFlag) &&
-				(wcsstr(RCAST<CONST WCHAR*>(&tempStrToCmp), RCAST<CONST WCHAR*>(&currentFilter->MatchString)) != NULL))
+			if ((currentFilter->Filter.Flags & OperationFlag) &&
+				(wcsstr(RCAST<CONST WCHAR*>(&tempStrToCmp), RCAST<CONST WCHAR*>(&currentFilter->Filter.MatchString)) != NULL))
 			{
 				filterMatched = TRUE;
 				goto Exit;
 			}
-			currentFilter = RCAST<PFILTERINFO>(currentFilter->ListEntry.Flink);
+			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
 		} while (currentFilter && currentFilter != this->filtersHead);
 	}
 Exit:
 	FltReleasePushLock(&this->filtersLock);
 	return filterMatched;
+}
+
+/**
+	Get the filters present in the linked-list.
+	@param SkipFilters - The number of filters to skip.
+	@param Filters - The output array.
+	@param FilterSize - Maximum number of filters.
+	@return The number of filters copied.
+*/
+ULONG
+StringFilters::GetFilters (
+	_In_ ULONG SkipFilters,
+	_Inout_ FILTER_INFO Filters[],
+	_In_ ULONG FiltersSize
+	)
+{
+	PFILTER_INFO_LINKED currentFilter;
+	ULONG skipCount;
+	ULONG copyCount;
+
+	skipCount = 0;
+	copyCount = 0;
+
+	//
+	// Acquire a shared lock to iterate filters.
+	//
+	FltAcquirePushLockShared(&this->filtersLock);
+
+	//
+	// Iterate filters for a match.
+	//
+	if (this->filtersHead)
+	{
+		currentFilter = this->filtersHead;
+		do
+		{
+			if (skipCount >= SkipFilters)
+			{
+				memcpy_s(&Filters[copyCount], sizeof(FILTER_INFO), &currentFilter->Filter, sizeof(FILTER_INFO));
+				copyCount++;
+			}
+			skipCount++;
+			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
+		} while (currentFilter && currentFilter != this->filtersHead && copyCount < FiltersSize);
+	}
+
+	FltReleasePushLock(&this->filtersLock);
+
+	return copyCount;
 }

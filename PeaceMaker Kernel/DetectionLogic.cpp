@@ -5,7 +5,7 @@
 */
 DetectionLogic::DetectionLogic()
 {
-	alerts = new (PagedPool, ALERT_QUEUE_TAG) AlertQueue();
+	alerts = new (NonPagedPool, ALERT_QUEUE_TAG) AlertQueue();
 }
 
 /**

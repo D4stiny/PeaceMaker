@@ -75,8 +75,6 @@ FSBlockingFilter::FSBlockingFilter (
 */
 FSBlockingFilter::~FSBlockingFilter()
 {
-	PAGED_CODE();
-
 	DBGPRINT("FSBlockingFilter!~FSBlockingFilter: Deconstructing class.");
 	//
 	// Make sure to deconstruct the class.
@@ -267,8 +265,6 @@ FSBlockingFilter::HandleInstanceSetup(
 	UNREFERENCED_PARAMETER(Flags);
 	UNREFERENCED_PARAMETER(VolumeDeviceType);
 
-	PAGED_CODE();
-
 	status = FltIsVolumeWritable(FltObjects->Volume,
 		&isWritable);
 
@@ -319,8 +315,6 @@ FSBlockingFilter::HandleInstanceQueryTeardown(
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(Flags);
 
-	PAGED_CODE();
-
 	return STATUS_SUCCESS;
 }
 
@@ -337,8 +331,6 @@ FSBlockingFilter::HandleInstanceTeardownStart(
 {
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(Flags);
-
-	PAGED_CODE();
 }
 
 /**
@@ -354,6 +346,4 @@ FSBlockingFilter::HandleInstanceTeardownComplete(
 {
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(Flags);
-
-	PAGED_CODE();
 }

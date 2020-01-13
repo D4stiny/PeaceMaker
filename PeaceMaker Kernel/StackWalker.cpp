@@ -112,15 +112,15 @@ Exit:
 
 /**
 	Walk the stack of the current thread and resolve the module associated with the return addresses.
-	@param SkipFrames - The number of stack frames to skip.
 	@param ResolvedStack - Caller-supplied array of return address information that this function populates.
-	@param ResolvedStackSize - The maximum number of return addresses to resolve.
-	@return The number of return addresses resolved.
+	@param ResolvedStackSize - The number of return addresses to resolve.
+	@param ResolvedStackTag - The tag to allocate ResolvedStack with.
 */
-ULONG
+VOID
 StackWalker::WalkAndResolveStack (
-	_Inout_ STACK_RETURN_INFO ResolvedStack[],
-	_In_ ULONG ResolvedStackSize
+	_Inout_ PSTACK_RETURN_INFO* ResolvedStack,
+	_Inout_ ULONG* ResolvedStackSize,
+	_In_ ULONG ResolvedStackTag
 	)
 {
 	PVOID* stackReturnPtrs;
@@ -128,22 +128,24 @@ StackWalker::WalkAndResolveStack (
 	ULONG i;
 	
 	capturedReturnPtrs = 0;
-	memset(ResolvedStack, 0, sizeof(STACK_RETURN_INFO) * ResolvedStackSize);
+	*ResolvedStack = NULL;
 
 	//
 	// Allocate space for the return addresses.
 	//
-	stackReturnPtrs = RCAST<PVOID*>(ExAllocatePoolWithTag(PagedPool, sizeof(PVOID) * ResolvedStackSize, STACK_WALK_ARRAY_TAG));
+	stackReturnPtrs = RCAST<PVOID*>(ExAllocatePoolWithTag(PagedPool, sizeof(PVOID) * *ResolvedStackSize, STACK_WALK_ARRAY_TAG));
 	if (stackReturnPtrs == NULL)
 	{
 		DBGPRINT("StackWalker!WalkAndResolveStack: Failed to allocate space for temporary stack array.");
 		goto Exit;
 	}
 
+	memset(stackReturnPtrs, 0, sizeof(PVOID) * *ResolvedStackSize);
+
 	//
 	// Get the return addresses leading up to this call.
 	//
-	capturedReturnPtrs = RtlWalkFrameChain(stackReturnPtrs, ResolvedStackSize, 1);
+	capturedReturnPtrs = RtlWalkFrameChain(stackReturnPtrs, *ResolvedStackSize, 1);
 	if (capturedReturnPtrs == 0)
 	{
 		DBGPRINT("StackWalker!WalkAndResolveStack: Failed to walk the stack.");
@@ -151,20 +153,35 @@ StackWalker::WalkAndResolveStack (
 	}
 
 	NT_ASSERT(capturedReturnPtrs < ResolvedStackSize);
+
+	*ResolvedStackSize = capturedReturnPtrs;
+
+	//
+	// Allocate space for the stack return info array.
+	//
+	*ResolvedStack = RCAST<PSTACK_RETURN_INFO>(ExAllocatePoolWithTag(PagedPool, sizeof(STACK_RETURN_INFO) * *ResolvedStackSize, ResolvedStackTag));
+	if (*ResolvedStack == NULL)
+	{
+		DBGPRINT("StackWalker!WalkAndResolveStack: Failed to allocate space for stack info array.");
+		goto Exit;
+	}
+	memset(*ResolvedStack, 0, sizeof(STACK_RETURN_INFO) * *ResolvedStackSize);
+
+
 	//
 	// Iterate each return address and fill out the struct.
 	//
 	for (i = 0; i < capturedReturnPtrs; i++)
 	{
-		ResolvedStack[i].RawAddress = stackReturnPtrs[i];
+		(*ResolvedStack)[i].RawAddress = stackReturnPtrs[i];
 
 		//
 		// If the memory isn't executable or is in kernel, it's not worth our time.
 		//
 		if (RCAST<ULONG64>(stackReturnPtrs[i]) < MmUserProbeAddress && this->IsAddressExecutable(stackReturnPtrs[i]))
 		{
-			ResolvedStack[i].ExecutableMemory = TRUE;
-			this->ResolveAddressModule(stackReturnPtrs[i], &ResolvedStack[i]);
+			(*ResolvedStack)[i].ExecutableMemory = TRUE;
+			this->ResolveAddressModule(stackReturnPtrs[i], &(*ResolvedStack)[i]);
 		}
 	}
 Exit:
@@ -172,5 +189,4 @@ Exit:
 	{
 		ExFreePoolWithTag(stackReturnPtrs, STACK_WALK_ARRAY_TAG);
 	}
-	return capturedReturnPtrs;
 }

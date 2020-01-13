@@ -61,7 +61,7 @@ typedef class ImageHistoryFilter
 
 	static BOOLEAN GetProcessImageFileName (
 		_In_ HANDLE ProcessId,
-		_Out_ PUNICODE_STRING* ImageFileName
+		_Inout_ PUNICODE_STRING* ImageFileName
 		);
 
 	static VOID AddProcessToHistory (
@@ -79,10 +79,10 @@ public:
 		);
 	~ImageHistoryFilter(VOID);
 
-	USHORT GetProcessHistorySummary (
-		_In_ USHORT SkipCount,
+	ULONG GetProcessHistorySummary (
+		_In_ ULONG SkipCount,
 		_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
-		_In_ USHORT MaxProcessSummaries
+		_In_ ULONG MaxProcessSummaries
 		);
 
 	VOID PopulateProcessDetailedRequest(
