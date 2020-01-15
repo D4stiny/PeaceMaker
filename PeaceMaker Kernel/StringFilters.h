@@ -27,7 +27,7 @@ public:
 		);
 	ULONG GetFilters(
 		_In_ ULONG SkipFilters,
-		_Inout_ FILTER_INFO Filters[],
+		_Inout_ PFILTER_INFO Filters,
 		_In_ ULONG FiltersSize
 		);
 

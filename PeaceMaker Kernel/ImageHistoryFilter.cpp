@@ -90,7 +90,6 @@ ImageHistoryFilter::~ImageHistoryFilter (
 		while (IsListEmpty(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead)) == FALSE)
 		{
 			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(RemoveHeadList(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead)));
-			DBGPRINT("currentProcessHistory = 0x%llx", currentProcessHistory);
 			//
 			// Clear the images linked-list.
 			//
@@ -107,26 +106,21 @@ ImageHistoryFilter::~ImageHistoryFilter (
 					if (currentImageEntry->ImageFileName.Buffer)
 					{
 						ExFreePoolWithTag(currentImageEntry->ImageFileName.Buffer, IMAGE_NAME_TAG);
-						DBGPRINT("Freed 'PmIn' at 0x%llx.", currentImageEntry->ImageFileName.Buffer);
 					}
 
 					//
 					// Free the stack history.
 					//
 					ExFreePoolWithTag(currentImageEntry->CallerStackHistory, STACK_HISTORY_TAG);
-					DBGPRINT("Freed 'PmSh' at 0x%llx.", currentImageEntry->CallerStackHistory);
 
 					ExFreePoolWithTag(currentImageEntry, IMAGE_HISTORY_TAG);
-					DBGPRINT("Freed 'PmIh' at 0x%llx.", currentImageEntry);
 				}
 
 				//
 				// Finally, free the list head.
 				//
 				ExFreePoolWithTag(currentProcessHistory->ImageLoadHistory, IMAGE_HISTORY_TAG);
-				DBGPRINT("Freed 'PmIh' head at 0x%llx.", currentProcessHistory->ImageLoadHistory);
 			}
-
 
 			//
 			// Free the names.
@@ -204,10 +198,10 @@ ImageHistoryFilter::AddProcessToHistory (
 	newProcessHistory->ParentId = ParentId;
 	newProcessHistory->CallerId = PsGetCurrentProcessId();
 	newProcessHistory->ProcessTerminated = FALSE;
+	newProcessHistory->ImageLoadHistorySize = 0;
 	KeQuerySystemTime(&systemTime);
 	ExSystemTimeToLocalTime(&systemTime, &localSystemTime);
-	NT_ASSERT(RtlTimeToSecondsSince1970(&localSystemTime, &newProcessHistory->EpochExecutionTime)); // Who is using this garbage after 2105??
-
+	newProcessHistory->EpochExecutionTime = localSystemTime.QuadPart / TICKSPERSEC - SECS_1601_TO_1970;
 	//
 	// Image file name fields.
 	//
@@ -507,8 +501,6 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	}
 	memset(newImageLoadHistory, 0, sizeof(IMAGE_LOAD_HISTORY_ENTRY));
 
-	DBGPRINT("Alloc 'PmIh' at 0x%llx.", newImageLoadHistory);
-
 	//
 	// Copy the image file name if it is provided.
 	//
@@ -550,13 +542,11 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 		status = STATUS_NO_MEMORY;
 		goto Exit;
 	}
-	DBGPRINT("Alloc 'PmSh' at 0x%llx.", newImageLoadHistory->CallerStackHistory);
-
 
 	FltAcquirePushLockExclusive(&currentProcessHistory->ImageLoadHistoryLock);
-	DBGPRINT("Adding 0x%llx to 0x%llx.", newImageLoadHistory, currentProcessHistory);
 
 	InsertHeadList(RCAST<PLIST_ENTRY>(currentProcessHistory->ImageLoadHistory), RCAST<PLIST_ENTRY>(newImageLoadHistory));
+	currentProcessHistory->ImageLoadHistorySize++;
 
 	FltReleasePushLock(&currentProcessHistory->ImageLoadHistoryLock);
 Exit:
@@ -595,7 +585,7 @@ Exit:
 ULONG
 ImageHistoryFilter::GetProcessHistorySummary (
 	_In_ ULONG SkipCount,
-	_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
+	_Inout_ PPROCESS_SUMMARY_ENTRY ProcessSummaries,
 	_In_ ULONG MaxProcessSummaries
 	)
 {
@@ -622,24 +612,25 @@ ImageHistoryFilter::GetProcessHistorySummary (
 	//
 	if (ImageHistoryFilter::ProcessHistoryHead)
 	{
-		currentProcessHistory = ImageHistoryFilter::ProcessHistoryHead;
-		do
+		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Blink);
+		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead && MaxProcessSummaries > actualFilledSummaries)
 		{
 			if (currentProcessIndex >= SkipCount)
 			{
+				DBGPRINT("ImageHistoryFilter!GetProcessHistorySummary: Adding process 0x%X.", currentProcessHistory->ProcessId);
 				//
 				// Fill out the summary.
 				//
-				ProcessSummaries[currentProcessIndex].EpochExecutionTime = currentProcessHistory->EpochExecutionTime;
-				ProcessSummaries[currentProcessIndex].ProcessId = currentProcessHistory->ProcessId;
-				ProcessSummaries[currentProcessIndex].ProcessTerminated = currentProcessHistory->ProcessTerminated;
+				ProcessSummaries[actualFilledSummaries].EpochExecutionTime = currentProcessHistory->EpochExecutionTime;
+				ProcessSummaries[actualFilledSummaries].ProcessId = currentProcessHistory->ProcessId;
+				ProcessSummaries[actualFilledSummaries].ProcessTerminated = currentProcessHistory->ProcessTerminated;
 				
 				if (currentProcessHistory->ProcessImageFileName)
 				{
 					//
 					// Copy the image name.
 					//
-					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(&ProcessSummaries[currentProcessIndex].ImageFileName), MAX_PATH, currentProcessHistory->ProcessImageFileName);
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(&ProcessSummaries[currentProcessIndex].ImageFileName), MAX_PATH * sizeof(WCHAR), currentProcessHistory->ProcessImageFileName);
 					if (NT_SUCCESS(status) == FALSE)
 					{
 						DBGPRINT("ImageHistoryFilter!GetProcessHistorySummary: Failed to copy the image file name with status 0x%X.", status);
@@ -650,7 +641,7 @@ ImageHistoryFilter::GetProcessHistorySummary (
 			}
 			currentProcessIndex++;
 			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
-		} while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead && MaxProcessSummaries > actualFilledSummaries);
+		}
 	}
 
 	//
@@ -672,6 +663,10 @@ ImageHistoryFilter::PopulateProcessDetailedRequest (
 {
 	NTSTATUS status;
 	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+	PIMAGE_LOAD_HISTORY_ENTRY currentImageEntry;
+	ULONG i;
+
+	i = 0;
 
 	if (ImageHistoryFilter::destroying)
 	{
@@ -685,8 +680,8 @@ ImageHistoryFilter::PopulateProcessDetailedRequest (
 
 	if (ImageHistoryFilter::ProcessHistoryHead)
 	{
-		currentProcessHistory = ImageHistoryFilter::ProcessHistoryHead;
-		do
+		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Blink);
+		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead)
 		{
 			if (ProcessDetailedRequest->ProcessId == currentProcessHistory->ProcessId &&
 				ProcessDetailedRequest->EpochExecutionTime == currentProcessHistory->EpochExecutionTime)
@@ -709,7 +704,7 @@ ImageHistoryFilter::PopulateProcessDetailedRequest (
 				//
 				if (currentProcessHistory->ProcessImageFileName)
 				{
-					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ProcessPath), MAX_PATH, currentProcessHistory->ProcessImageFileName);
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ProcessPath), MAX_PATH * sizeof(WCHAR), currentProcessHistory->ProcessImageFileName);
 					if (NT_SUCCESS(status) == FALSE)
 					{
 						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the process with status 0x%X.", status);
@@ -718,7 +713,7 @@ ImageHistoryFilter::PopulateProcessDetailedRequest (
 				}
 				if (currentProcessHistory->CallerImageFileName)
 				{
-					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->CallerProcessPath), MAX_PATH, currentProcessHistory->CallerImageFileName);
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->CallerProcessPath), MAX_PATH * sizeof(WCHAR), currentProcessHistory->CallerImageFileName);
 					if (NT_SUCCESS(status) == FALSE)
 					{
 						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the caller with status 0x%X.", status);
@@ -727,17 +722,177 @@ ImageHistoryFilter::PopulateProcessDetailedRequest (
 				}
 				if (currentProcessHistory->ParentImageFileName)
 				{
-					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ParentProcessPath), MAX_PATH, currentProcessHistory->ParentImageFileName);
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ParentProcessPath), MAX_PATH * sizeof(WCHAR), currentProcessHistory->ParentImageFileName);
 					if (NT_SUCCESS(status) == FALSE)
 					{
 						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the parent with status 0x%X.", status);
 						break;
 					}
 				}
+
+				//
+				// Iterate the images for basic information.
+				//
+				FltAcquirePushLockShared(&currentProcessHistory->ImageLoadHistoryLock);
+
+				//
+				// The head isn't an element so skip it.
+				//
+				currentImageEntry = RCAST<PIMAGE_LOAD_HISTORY_ENTRY>(currentProcessHistory->ImageLoadHistory->ListEntry.Flink);
+				while (currentImageEntry != currentProcessHistory->ImageLoadHistory && i < ProcessDetailedRequest->ImageSummarySize)
+				{
+					__try
+					{
+						if (currentImageEntry->ImageFileName.Buffer)
+						{
+							status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ImageSummary[i].ImagePath), MAX_PATH * sizeof(WCHAR), &currentImageEntry->ImageFileName);
+							if (NT_SUCCESS(status) == FALSE)
+							{
+								DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of an image with status 0x%X and source size %i.", status, currentImageEntry->ImageFileName.Length);
+								break;
+							}
+						}
+						ProcessDetailedRequest->ImageSummary[i].StackSize = currentImageEntry->CallerStackHistorySize;
+					}
+					__except (1)
+					{
+						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Exception while processing image summaries.");
+						break;
+					}
+					
+					i++;
+
+					currentImageEntry = RCAST<PIMAGE_LOAD_HISTORY_ENTRY>(currentImageEntry->ListEntry.Flink);
+				}
+
+				FltReleasePushLock(&currentProcessHistory->ImageLoadHistoryLock);
+
+				ProcessDetailedRequest->ImageSummarySize = i; // Actual number of images put into the array.
 				break;
 			}
 			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
-		} while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead);
+		}
+	}
+
+	//
+	// Release the lock.
+	//
+	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+}
+
+/**
+	Populate a process sizes request.
+	@param ProcesSizesRequest - The request to populate.
+*/
+VOID
+ImageHistoryFilter::PopulateProcessSizes (
+	_Inout_ PPROCESS_SIZES_REQUEST ProcessSizesRequest
+	)
+{
+	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+
+	if (ImageHistoryFilter::destroying)
+	{
+		return;
+	}
+
+	//
+	// Acquire a shared lock to iterate processes.
+	//
+	FltAcquirePushLockShared(&ImageHistoryFilter::ProcessHistoryLock);
+
+	if (ImageHistoryFilter::ProcessHistoryHead)
+	{
+		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Blink);
+		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead)
+		{
+			if (ProcessSizesRequest->ProcessId == currentProcessHistory->ProcessId &&
+				ProcessSizesRequest->EpochExecutionTime == currentProcessHistory->EpochExecutionTime)
+			{
+				ProcessSizesRequest->StackSize = currentProcessHistory->CallerStackHistorySize;
+				ProcessSizesRequest->ImageSize = currentProcessHistory->ImageLoadHistorySize;
+				break;
+			}
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
+		}
+	}
+
+	//
+	// Release the lock.
+	//
+	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+}
+
+VOID
+ImageHistoryFilter::PopulateImageDetailedRequest(
+	_Inout_ PIMAGE_DETAILED_REQUEST ImageDetailedRequest
+	)
+{
+	NTSTATUS status;
+	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+	PIMAGE_LOAD_HISTORY_ENTRY currentImageEntry;
+	ULONG i;
+
+	i = 0;
+
+	if (ImageHistoryFilter::destroying)
+	{
+		return;
+	}
+
+	//
+	// Acquire a shared lock to iterate processes.
+	//
+	FltAcquirePushLockShared(&ImageHistoryFilter::ProcessHistoryLock);
+
+	if (ImageHistoryFilter::ProcessHistoryHead)
+	{
+		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Blink);
+		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead)
+		{
+			if (ImageDetailedRequest->ProcessId == currentProcessHistory->ProcessId &&
+				ImageDetailedRequest->EpochExecutionTime == currentProcessHistory->EpochExecutionTime)
+			{
+				//
+				// Iterate the images for basic information.
+				//
+				FltAcquirePushLockShared(&currentProcessHistory->ImageLoadHistoryLock);
+
+				//
+				// The head isn't an element so skip it.
+				//
+				currentImageEntry = RCAST<PIMAGE_LOAD_HISTORY_ENTRY>(currentProcessHistory->ImageLoadHistory->ListEntry.Flink);
+				while (currentImageEntry != currentProcessHistory->ImageLoadHistory)
+				{
+					if (i == ImageDetailedRequest->ImageIndex)
+					{
+						if (currentImageEntry->ImageFileName.Buffer)
+						{
+							status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ImageDetailedRequest->ImagePath), MAX_PATH * sizeof(WCHAR), &currentImageEntry->ImageFileName);
+							if (NT_SUCCESS(status) == FALSE)
+							{
+								DBGPRINT("ImageHistoryFilter!PopulateImageDetailedRequest: Failed to copy the image file name of an image with status 0x%X and source size %i.", status, currentImageEntry->ImageFileName.Length);
+								break;
+							}
+						}
+
+						//
+						// Copy the stack history.
+						//
+						ImageDetailedRequest->StackHistorySize = (ImageDetailedRequest->StackHistorySize > currentImageEntry->CallerStackHistorySize) ? currentImageEntry->CallerStackHistorySize : ImageDetailedRequest->StackHistorySize;
+						memcpy(ImageDetailedRequest->StackHistory, currentImageEntry->CallerStackHistory, ImageDetailedRequest->StackHistorySize * sizeof(STACK_RETURN_INFO));
+
+						ImageDetailedRequest->Populated = TRUE;
+					}
+					i++;
+					currentImageEntry = RCAST<PIMAGE_LOAD_HISTORY_ENTRY>(currentImageEntry->ListEntry.Flink);
+				}
+
+				FltReleasePushLock(&currentProcessHistory->ImageLoadHistoryLock);
+				break;
+			}
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
+		}
 	}
 
 	//

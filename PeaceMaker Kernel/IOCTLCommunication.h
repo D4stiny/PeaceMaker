@@ -5,9 +5,6 @@
 #include "FSFilter.h"
 #include "RegistryFilter.h"
 
-#define NT_DEVICE_NAME      L"\\Device\\PeaceMaker"
-#define DOS_DEVICE_NAME     L"\\DosDevices\\PeaceMaker"
-
 typedef class IOCTLCommunication
 {
 	static PDRIVER_OBJECT DriverObject;

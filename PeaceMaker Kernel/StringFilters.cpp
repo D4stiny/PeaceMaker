@@ -300,7 +300,7 @@ Exit:
 ULONG
 StringFilters::GetFilters (
 	_In_ ULONG SkipFilters,
-	_Inout_ FILTER_INFO Filters[],
+	_Inout_ PFILTER_INFO Filters,
 	_In_ ULONG FiltersSize
 	)
 {
@@ -327,6 +327,7 @@ StringFilters::GetFilters (
 			if (skipCount >= SkipFilters)
 			{
 				memcpy_s(&Filters[copyCount], sizeof(FILTER_INFO), &currentFilter->Filter, sizeof(FILTER_INFO));
+				DBGPRINT("StringFilters!GetFilters: Copying filter ID 0x%X.", currentFilter->Filter.Id);
 				copyCount++;
 			}
 			skipCount++;

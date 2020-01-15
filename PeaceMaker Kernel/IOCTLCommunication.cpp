@@ -127,12 +127,15 @@ IOCTLCommunication::IOCTLDeviceControl (
 	ULONG ioctlCode;
 	ULONG inputLength;
 	ULONG outputLength;
+	ULONG minimumLength;
+	ULONG writtenLength;
 
 	PBASE_ALERT_INFO poppedAlert;
 	PPROCESS_SUMMARY_REQUEST processSummaryRequest;
 	PPROCESS_DETAILED_REQUEST processDetailedRequest;
 	PSTRING_FILTER_REQUEST filterAddRequest;
 	PLIST_FILTERS_REQUEST listFiltersRequest;
+	PIMAGE_DETAILED_REQUEST imageDetailedRequest;
 
 	WCHAR temporaryFilterBuffer[MAX_PATH];
 
@@ -147,6 +150,9 @@ IOCTLCommunication::IOCTLDeviceControl (
 	ioctlCode = irpStackLocation->Parameters.DeviceIoControl.IoControlCode;
 	inputLength = irpStackLocation->Parameters.DeviceIoControl.InputBufferLength;
 	outputLength = irpStackLocation->Parameters.DeviceIoControl.OutputBufferLength;
+	writtenLength = 0;
+
+	DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: ioctlCode = 0x%X, inputLength = 0x%X, outputLength = 0x%X", ioctlCode, inputLength, outputLength);
 
 	//
 	// Handle the different IOCTL request types.
@@ -159,13 +165,15 @@ IOCTLCommunication::IOCTLDeviceControl (
 			//
 			// Return the status of the Queue.
 			//
-			*RCAST<BOOLEAN*>(Irp->AssociatedIrp.SystemBuffer) = IOCTLCommunication::Detector->GetAlertQueue()->IsQueueEmpty();
+			*RCAST<BOOLEAN*>(Irp->AssociatedIrp.SystemBuffer) = !IOCTLCommunication::Detector->GetAlertQueue()->IsQueueEmpty();
+			writtenLength = sizeof(BOOLEAN);
 		}
 		break;
 	case IOCTL_POP_ALERT:
-		if (outputLength <= MAX_STACK_VIOLATION_ALERT_SIZE)
+		if (outputLength < MAX_STACK_VIOLATION_ALERT_SIZE)
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_POP_ALERT but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_STACK_VIOLATION_ALERT_SIZE);
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 		//
@@ -175,12 +183,19 @@ IOCTLCommunication::IOCTLDeviceControl (
 		if (poppedAlert == NULL)
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_POP_ALERT but no alert to pop.");
+			status = STATUS_NOT_FOUND;
 			goto Exit;
 		}
+
+		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Got alert 0x%llx for IOCTL_POP_ALERT.\n", poppedAlert);
+
 		//
 		// Copy the alert.
 		//
 		memcpy_s(Irp->AssociatedIrp.SystemBuffer, outputLength, poppedAlert, poppedAlert->AlertSize);
+
+		writtenLength = poppedAlert->AlertSize;
+
 		//
 		// Free the alert entry.
 		//
@@ -190,6 +205,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 		if (inputLength < sizeof(PROCESS_SUMMARY_REQUEST))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 
@@ -200,28 +216,51 @@ IOCTLCommunication::IOCTLDeviceControl (
 		if (outputLength < MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest));
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 
 		//
 		// Grab the history summaries.
 		//
-		processSummaryRequest->ProcessHistorySize = IOCTLCommunication::ImageProcessFilter->GetProcessHistorySummary(processSummaryRequest->SkipCount, processSummaryRequest->ProcessHistory, processSummaryRequest->ProcessHistorySize);
+		processSummaryRequest->ProcessHistorySize = IOCTLCommunication::ImageProcessFilter->GetProcessHistorySummary(processSummaryRequest->SkipCount, RCAST<PPROCESS_SUMMARY_ENTRY>(&processSummaryRequest->ProcessHistory[0]), processSummaryRequest->ProcessHistorySize);
+		writtenLength = MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest);
+
+		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: IOCTL_GET_PROCESSES found %i processes.", processSummaryRequest->ProcessHistorySize);
 		break;
 	case IOCTL_GET_PROCESS_DETAILED:
 		if (inputLength < sizeof(PROCESS_DETAILED_REQUEST))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESS_DETAILED but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+
+		processDetailedRequest = RCAST<PPROCESS_DETAILED_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+
+		minimumLength = sizeof(PROCESS_DETAILED_REQUEST);
+		//
+		// Verify the specified array size.
+		//
+		if (outputLength < minimumLength)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESS_DETAILED but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, minimumLength);
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 
 		//
-		// Verify the specified array size.
+		// Verify the user buffers.
 		//
-		processDetailedRequest = RCAST<PPROCESS_DETAILED_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
-		if (outputLength < MAX_PROCESS_DETAILED_REQUEST_SIZE(processDetailedRequest))
+		__try
 		{
-			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_PROCESS_DETAILED_REQUEST_SIZE(processDetailedRequest));
+			ProbeForWrite(processDetailedRequest->ImageSummary, processDetailedRequest->ImageSummarySize * sizeof(IMAGE_SUMMARY), sizeof(ULONG));
+			ProbeForWrite(processDetailedRequest->StackHistory, processDetailedRequest->StackHistorySize * sizeof(STACK_RETURN_INFO), sizeof(ULONG));
+		}
+		__except (1)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESS_DETAILED but user buffers were invalid.");
+			status = STATUS_BAD_DATA;
 			goto Exit;
 		}
 		
@@ -229,6 +268,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 		// Populate the detailed request.
 		//
 		IOCTLCommunication::ImageProcessFilter->PopulateProcessDetailedRequest(processDetailedRequest);
+		writtenLength = minimumLength;
 		break;
 	case IOCTL_ADD_FILTER:
 		//
@@ -237,11 +277,13 @@ IOCTLCommunication::IOCTLDeviceControl (
 		if (inputLength < sizeof(STRING_FILTER_REQUEST))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_ADD_FILTER but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 		if (outputLength < sizeof(STRING_FILTER_REQUEST))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_ADD_FILTER but output buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 
@@ -250,12 +292,14 @@ IOCTLCommunication::IOCTLDeviceControl (
 		//
 		// Copy the filter content to a temporary string (ensures null-terminator).
 		//
-		status = RtlStringCchCopyNW(temporaryFilterBuffer, MAX_PATH, filterAddRequest->FilterContent, MAX_PATH);
+		status = RtlStringCchCopyNW(temporaryFilterBuffer, MAX_PATH, filterAddRequest->Filter.MatchString, MAX_PATH);
 		if (NT_SUCCESS(status) == FALSE)
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Failed to copy filter content to temporary buffer with status 0x%X.", status);
 			goto Exit;
 		}
+
+		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Adding filter with content %ws.", temporaryFilterBuffer);
 
 		//
 		// Depending on the type of filter, add the string.
@@ -263,12 +307,13 @@ IOCTLCommunication::IOCTLDeviceControl (
 		switch (filterAddRequest->FilterType)
 		{
 		case FilesystemFilter:
-			filterAddRequest->FilterId = FilesystemMonitor->GetStringFilters()->AddFilter(temporaryFilterBuffer, filterAddRequest->FilterFlags);
+			filterAddRequest->Filter.Id = FilesystemMonitor->GetStringFilters()->AddFilter(temporaryFilterBuffer, filterAddRequest->Filter.Flags);
 			break;
 		case RegistryFilter:
-			filterAddRequest->FilterId = RegistryMonitor->GetStringFilters()->AddFilter(temporaryFilterBuffer, filterAddRequest->FilterFlags);
+			filterAddRequest->Filter.Id = RegistryMonitor->GetStringFilters()->AddFilter(temporaryFilterBuffer, filterAddRequest->Filter.Flags);
 			break;
 		}
+		writtenLength = sizeof(STRING_FILTER_REQUEST);
 		break;
 	case IOCTL_LIST_FILTERS:
 		//
@@ -277,11 +322,13 @@ IOCTLCommunication::IOCTLDeviceControl (
 		if (inputLength < sizeof(LIST_FILTERS_REQUEST))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_LIST_FILTERS but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 		if (outputLength < sizeof(LIST_FILTERS_REQUEST))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_LIST_FILTERS but output buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
 			goto Exit;
 		}
 
@@ -289,22 +336,75 @@ IOCTLCommunication::IOCTLDeviceControl (
 		switch (listFiltersRequest->FilterType)
 		{
 		case FilesystemFilter:
-			listFiltersRequest->CopiedFilters = FilesystemMonitor->GetStringFilters()->GetFilters(listFiltersRequest->SkipFilters, listFiltersRequest->Filters, 10);
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Retrieving filesystem filters.");
+			listFiltersRequest->CopiedFilters = FilesystemMonitor->GetStringFilters()->GetFilters(listFiltersRequest->SkipFilters, RCAST<PFILTER_INFO>(&listFiltersRequest->Filters), 10);
 			break;
 		case RegistryFilter:
-			listFiltersRequest->CopiedFilters = RegistryMonitor->GetStringFilters()->GetFilters(listFiltersRequest->SkipFilters, listFiltersRequest->Filters, 10);
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Retrieving registry filters.");
+			listFiltersRequest->CopiedFilters = RegistryMonitor->GetStringFilters()->GetFilters(listFiltersRequest->SkipFilters, RCAST<PFILTER_INFO>(&listFiltersRequest->Filters), 10);
 			break;
 		}
+		writtenLength = sizeof(LIST_FILTERS_REQUEST);
+		break;
+	case IOCTL_GET_PROCESS_SIZES:
+		//
+		// Validate the size of the input and output buffers.
+		//
+		if (inputLength < sizeof(PROCESS_SIZES_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESS_SIZES but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+		if (outputLength < sizeof(PROCESS_SIZES_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESS_SIZES but output buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+
+		IOCTLCommunication::ImageProcessFilter->PopulateProcessSizes(RCAST<PPROCESS_SIZES_REQUEST>(Irp->AssociatedIrp.SystemBuffer));
+		writtenLength = sizeof(PROCESS_SIZES_REQUEST);
+		break;
+	case IOCTL_GET_IMAGE_DETAILED:
+		//
+		// Validate the size of the input and output buffers.
+		//
+		if (inputLength < sizeof(IMAGE_DETAILED_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_IMAGE_DETAILED but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+
+		imageDetailedRequest = RCAST<PIMAGE_DETAILED_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+		minimumLength = MAX_IMAGE_DETAILED_REQUEST_SIZE(imageDetailedRequest);
+		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: IOCTL_GET_IMAGE_DETAILED minimumLength = 0x%X.", minimumLength);
+
+		if (inputLength < minimumLength)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_IMAGE_DETAILED but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+		if (outputLength < minimumLength)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_IMAGE_DETAILED but output buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+		IOCTLCommunication::ImageProcessFilter->PopulateImageDetailedRequest(imageDetailedRequest);
+		writtenLength = MAX_IMAGE_DETAILED_REQUEST_SIZE(imageDetailedRequest);
 		break;
 	}
 
 Exit:
 	Irp->IoStatus.Status = status;
-	Irp->IoStatus.Information = 0;
+	Irp->IoStatus.Information = writtenLength;
 
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 
-	return STATUS_SUCCESS;
+	return status;
 }
 
 /**

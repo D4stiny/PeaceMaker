@@ -29,7 +29,7 @@ typedef struct ProcessHistoryEntry
 	HANDLE ProcessId;							// The process id of the executed process.
 	PUNICODE_STRING ProcessImageFileName;		// The image file name of the executed process.
 	
-	ULONG EpochExecutionTime;					// Process execution time in seconds since 1970.
+	ULONGLONG EpochExecutionTime;				// Process execution time in seconds since 1970.
 	BOOLEAN ProcessTerminated;					// Whether or not the process has terminated.
 
 	PSTACK_RETURN_INFO CallerStackHistory;		// A variable-length array of the stack that started the process.
@@ -37,6 +37,7 @@ typedef struct ProcessHistoryEntry
 
 	PIMAGE_LOAD_HISTORY_ENTRY ImageLoadHistory;	// A linked-list of loaded images and their respective stack histories.
 	EX_PUSH_LOCK ImageLoadHistoryLock;			// The lock protecting the linked-list of loaded images.
+	ULONG ImageLoadHistorySize;					// The size of the image load history linked-list.
 } PROCESS_HISTORY_ENTRY, *PPROCESS_HISTORY_ENTRY;
 
 typedef class ImageHistoryFilter
@@ -81,11 +82,19 @@ public:
 
 	ULONG GetProcessHistorySummary (
 		_In_ ULONG SkipCount,
-		_Inout_ PROCESS_SUMMARY_ENTRY ProcessSummaries[],
+		_Inout_ PPROCESS_SUMMARY_ENTRY ProcessSummaries,
 		_In_ ULONG MaxProcessSummaries
 		);
 
 	VOID PopulateProcessDetailedRequest(
 		_Inout_ PPROCESS_DETAILED_REQUEST ProcessDetailedRequest
+		);
+
+	VOID PopulateProcessSizes(
+		_Inout_ PPROCESS_SIZES_REQUEST ProcessSizesRequest
+		);
+
+	VOID PopulateImageDetailedRequest(
+		_Inout_ PIMAGE_DETAILED_REQUEST ImageDetailedRequest
 		);
 } IMAGE_HISTORY_FILTER, *PIMAGE_HISTORY_FILTER;
