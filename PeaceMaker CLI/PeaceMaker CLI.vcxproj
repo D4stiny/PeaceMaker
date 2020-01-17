@@ -152,11 +152,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="IOCTLCommunication.cpp" />
+    <ClCompile Include="IOCTLCommunicationUser.cpp" />
     <ClCompile Include="PeaceMaker CLI.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="IOCTLCommunication.h" />
+    <ClInclude Include="IOCTLCommunicationUser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

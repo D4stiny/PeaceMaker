@@ -136,6 +136,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 	PSTRING_FILTER_REQUEST filterAddRequest;
 	PLIST_FILTERS_REQUEST listFiltersRequest;
 	PIMAGE_DETAILED_REQUEST imageDetailedRequest;
+	PGLOBAL_SIZES globalSizes;
 
 	WCHAR temporaryFilterBuffer[MAX_PATH];
 
@@ -213,7 +214,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 		// Verify the specified array size.
 		//
 		processSummaryRequest = RCAST<PPROCESS_SUMMARY_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
-		if (outputLength < MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest))
+		if (processSummaryRequest->ProcessHistorySize <= 0 || outputLength < MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest))
 		{
 			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_PROCESSES but output buffer with size 0x%X smaller then minimum 0x%X.", outputLength, MAX_PROCESS_SUMMARY_REQUEST_SIZE(processSummaryRequest));
 			status = STATUS_INSUFFICIENT_RESOURCES;
@@ -395,6 +396,23 @@ IOCTLCommunication::IOCTLDeviceControl (
 		}
 		IOCTLCommunication::ImageProcessFilter->PopulateImageDetailedRequest(imageDetailedRequest);
 		writtenLength = MAX_IMAGE_DETAILED_REQUEST_SIZE(imageDetailedRequest);
+		break;
+	case IOCTL_GET_GLOBAL_SIZES:
+		//
+		// Validate the size of the output buffer.
+		//
+		if (outputLength < sizeof(GLOBAL_SIZES))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_GET_GLOBAL_SIZES but output buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+
+		globalSizes = RCAST<PGLOBAL_SIZES>(Irp->AssociatedIrp.SystemBuffer);
+		globalSizes->ProcessHistorySize = ImageHistoryFilter::ProcessHistorySize;
+		globalSizes->FilesystemFilterSize = FilesystemMonitor->GetStringFilters()->filtersCount;
+		globalSizes->RegistryFilterSize = RegistryMonitor->GetStringFilters()->filtersCount;
+		writtenLength = sizeof(GLOBAL_SIZES);
 		break;
 	}
 

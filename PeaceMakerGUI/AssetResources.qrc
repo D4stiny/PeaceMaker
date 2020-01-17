@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/PeaceMakerLogo.png</file>
+        <file>assets/AlertsTabActive.png</file>
+        <file>assets/AlertsTabInactive.png</file>
+        <file>assets/ConfigTabActive.png</file>
+        <file>assets/ConfigTabInactive.png</file>
+        <file>assets/FiltersTabActive.png</file>
+        <file>assets/FiltersTabInactive.png</file>
+        <file>assets/ProcessesTabActive.png</file>
+        <file>assets/ProcessesTabInactive.png</file>
+        <file>assets/Copyright.png</file>
+        <file>assets/PeaceMakerIcon.ico</file>
+        <file>assets/BasicProcessInformation.png</file>
+        <file>assets/CreatorStackHistory.png</file>
+        <file>assets/Images.png</file>
+        <file>assets/ImageStackHistory.png</file>
+    </qresource>
+</RCC>

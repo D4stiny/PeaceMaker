@@ -1,4 +1,4 @@
-#include "IOCTLCommunication.h"
+#include "IOCTLCommunicationUser.h"
 
 /**
 	Default constructor.
@@ -380,4 +380,22 @@ Exit:
 		imageRequest = NULL;
 	}
 	return imageRequest;
+}
+
+GLOBAL_SIZES
+IOCTLCommunication::GetGlobalSizes(
+	VOID
+	)
+{
+	GLOBAL_SIZES sizes;
+
+	//
+	// Query the driver passing in the size request.
+	//
+	if (this->GenericQueryDriver(IOCTL_GET_GLOBAL_SIZES, NULL, 0, &sizes, sizeof(sizes)) == FALSE)
+	{
+		printf("IOCTLCommunication!GetProcessSizes: Failed to query driver with error code %i.\n", GetLastError());
+	}
+
+	return sizes;
 }

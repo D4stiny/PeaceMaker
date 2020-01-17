@@ -55,10 +55,10 @@ typedef class ImageHistoryFilter
 		_In_ PIMAGE_INFO ImageInfo
 		);
 
-	static StackWalker walker; // Stack walking utility.
-	static PPROCESS_HISTORY_ENTRY ProcessHistoryHead; // Linked-list of process history objects.
-	static EX_PUSH_LOCK ProcessHistoryLock;	// Lock protecting the ProcessHistory linked-list.
-	static BOOLEAN destroying; // This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
+	static StackWalker walker;							// Stack walking utility.
+	static PPROCESS_HISTORY_ENTRY ProcessHistoryHead;	// Linked-list of process history objects.
+	static EX_PUSH_LOCK ProcessHistoryLock;				// Lock protecting the ProcessHistory linked-list.
+	static BOOLEAN destroying;							// This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
 
 	static BOOLEAN GetProcessImageFileName (
 		_In_ HANDLE ProcessId,
@@ -97,4 +97,6 @@ public:
 	VOID PopulateImageDetailedRequest(
 		_Inout_ PIMAGE_DETAILED_REQUEST ImageDetailedRequest
 		);
+
+	static ULONG64 ProcessHistorySize;					// Number of entries in the ProcessHistory linked-list.
 } IMAGE_HISTORY_FILTER, *PIMAGE_HISTORY_FILTER;

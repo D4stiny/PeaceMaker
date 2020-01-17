@@ -35,6 +35,8 @@ public:
 		_In_ WCHAR* StrToCmp,
 		_In_ ULONG OperationFlag
 		);
+
+	ULONG filtersCount;	// Count of filters in the linked-list.
 } STRING_FILTERS, *PSTRING_FILTERS;
 
 #define FILTER_INFO_TAG 'iFmP'

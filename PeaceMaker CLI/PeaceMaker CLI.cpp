@@ -4,7 +4,7 @@
 #include <Windows.h>
 #include <iostream>
 #include <string>
-#include "IOCTLCommunication.h"
+#include "IOCTLCommunicationUser.h"
 
 /**
 	Print stack history.

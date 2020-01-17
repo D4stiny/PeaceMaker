@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>990</width>
+    <height>610</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>PeaceMaker</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="AssetResources.qrc">
+    <normaloff>:/assets/PeaceMakerIcon.ico</normaloff>:/assets/PeaceMakerIcon.ico</iconset>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: #404040;</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="LogoLabel">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>20</y>
+      <width>225</width>
+      <height>36</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;img src=&quot;:/assets/PeaceMakerLogo.png&quot;/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+   </widget>
+   <widget class="ClickableTab" name="AlertsLabel" native="true">
+    <property name="geometry">
+     <rect>
+      <x>350</x>
+      <y>30</y>
+      <width>95</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text" stdset="0">
+     <string>&lt;img src=&quot;:/assets/AlertsTabInactive.png&quot;/&gt;</string>
+    </property>
+   </widget>
+   <widget class="ClickableTab" name="ProcessesLabel" native="true">
+    <property name="geometry">
+     <rect>
+      <x>500</x>
+      <y>30</y>
+      <width>147</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text" stdset="0">
+     <string>&lt;img src=&quot;:/assets/ProcessesTabInactive.png&quot;/&gt;</string>
+    </property>
+   </widget>
+   <widget class="ClickableTab" name="FiltersLabel" native="true">
+    <property name="geometry">
+     <rect>
+      <x>700</x>
+      <y>30</y>
+      <width>96</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text" stdset="0">
+     <string>&lt;img src=&quot;:/assets/FiltersTabInactive.png&quot;/&gt;</string>
+    </property>
+   </widget>
+   <widget class="ClickableTab" name="ConfigLabel" native="true">
+    <property name="geometry">
+     <rect>
+      <x>850</x>
+      <y>30</y>
+      <width>89</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="text" stdset="0">
+     <string>&lt;img src=&quot;:/assets/ConfigTabInactive.png&quot;/&gt;</string>
+    </property>
+   </widget>
+   <widget class="QTableWidget" name="AlertsTable">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>70</y>
+      <width>971</width>
+      <height>481</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background: white;</string>
+    </property>
+   </widget>
+   <widget class="QTableWidget" name="ProcessesTable">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>70</y>
+      <width>971</width>
+      <height>481</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background: white;</string>
+    </property>
+   </widget>
+   <widget class="QTableWidget" name="FiltersTable">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>70</y>
+      <width>971</width>
+      <height>481</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background: white;</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="CopyrightLabel">
+    <property name="geometry">
+     <rect>
+      <x>700</x>
+      <y>580</y>
+      <width>280</width>
+      <height>18</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;img src=&quot;:/assets/Copyright.png&quot;/&gt;</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="InvestigateProcessButton">
+    <property name="geometry">
+     <rect>
+      <x>210</x>
+      <y>570</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background: white;</string>
+    </property>
+    <property name="text">
+     <string>Investigate Process</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="ProcessSearch">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>580</y>
+      <width>181</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background: white;</string>
+    </property>
+   </widget>
+   <zorder>FiltersTable</zorder>
+   <zorder>LogoLabel</zorder>
+   <zorder>AlertsLabel</zorder>
+   <zorder>ProcessesLabel</zorder>
+   <zorder>FiltersLabel</zorder>
+   <zorder>ConfigLabel</zorder>
+   <zorder>ProcessesTable</zorder>
+   <zorder>AlertsTable</zorder>
+   <zorder>CopyrightLabel</zorder>
+   <zorder>InvestigateProcessButton</zorder>
+   <zorder>ProcessSearch</zorder>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ClickableTab</class>
+   <extends>QWidget</extends>
+   <header>clickabletab.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="AssetResources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

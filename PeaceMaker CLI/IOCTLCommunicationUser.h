@@ -58,4 +58,7 @@ public:
 		_In_ ULONG ImageIndex,
 		_In_ ULONG MaxStackSize
 		);
+	GLOBAL_SIZES GetGlobalSizes(
+		VOID
+		);
 };

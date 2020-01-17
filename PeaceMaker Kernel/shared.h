@@ -17,6 +17,7 @@
 #define IOCTL_LIST_FILTERS			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x6, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 #define IOCTL_GET_IMAGE_DETAILED	CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x7, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 #define IOCTL_GET_PROCESS_SIZES		CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x8, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
+#define IOCTL_GET_GLOBAL_SIZES		CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x9, METHOD_BUFFERED, FILE_WRITE_DATA)
 
 #define RCAST reinterpret_cast
 #define SCAST static_cast
@@ -100,6 +101,7 @@ typedef struct ProcessSizesRequest
 {
 	HANDLE ProcessId;					// The process id of the executed process.
 	ULONGLONG EpochExecutionTime;		// Process execution time in seconds since 1970.
+	ULONG ProcessSize;					// The number of loaded processes.
 	ULONG ImageSize;					// The number of loaded images in the process.
 	ULONG StackSize;					// The number of stack return entries in the stack history for the process.
 } PROCESS_SIZES_REQUEST, *PPROCESS_SIZES_REQUEST;
@@ -194,3 +196,10 @@ typedef struct FilterViolationAlert
 // How many bytes the user-mode caller must supply as its output buffer.
 //
 #define MAX_FILTER_VIOLATION_ALERT_SIZE sizeof(FILTER_VIOLATION_ALERT) + (MAX_STACK_RETURN_HISTORY-1) * sizeof(STACK_RETURN_INFO)
+
+typedef struct GlobalSizes
+{
+	ULONG64 ProcessHistorySize;
+	ULONG64 FilesystemFilterSize;
+	ULONG64 RegistryFilterSize;
+} GLOBAL_SIZES, *PGLOBAL_SIZES;

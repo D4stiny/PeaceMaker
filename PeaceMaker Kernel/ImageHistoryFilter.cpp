@@ -4,6 +4,7 @@ StackWalker ImageHistoryFilter::walker;
 PPROCESS_HISTORY_ENTRY ImageHistoryFilter::ProcessHistoryHead;
 EX_PUSH_LOCK ImageHistoryFilter::ProcessHistoryLock;
 BOOLEAN ImageHistoryFilter::destroying;
+ULONG64 ImageHistoryFilter::ProcessHistorySize;
 
 /**
 	Register the necessary notify routines.
@@ -44,6 +45,7 @@ ImageHistoryFilter::ImageHistoryFilter (
 	}
 	memset(ImageHistoryFilter::ProcessHistoryHead, 0, sizeof(PROCESS_HISTORY_ENTRY));
 	InitializeListHead(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead));
+	this->ProcessHistorySize = 0;
 }
 
 /**
@@ -259,6 +261,7 @@ ImageHistoryFilter::AddProcessToHistory (
 	FltAcquirePushLockExclusive(&ImageHistoryFilter::ProcessHistoryLock);
 
 	InsertTailList(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead), RCAST<PLIST_ENTRY>(newProcessHistory));
+	ImageHistoryFilter::ProcessHistorySize++;
 
 	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
 Exit:
@@ -456,8 +459,6 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 		return;
 	}
 
-	DBGPRINT("ImageHistoryFilter!LoadImageNotifyRoutine(0x%X): Registering image %wZ.", ProcessId, FullImageName);
-
 	//
 	// Acquire a shared lock to iterate processes.
 	//
@@ -612,12 +613,11 @@ ImageHistoryFilter::GetProcessHistorySummary (
 	//
 	if (ImageHistoryFilter::ProcessHistoryHead)
 	{
-		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Blink);
-		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead && MaxProcessSummaries > actualFilledSummaries)
+		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Flink);
+		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead && actualFilledSummaries < MaxProcessSummaries)
 		{
 			if (currentProcessIndex >= SkipCount)
 			{
-				DBGPRINT("ImageHistoryFilter!GetProcessHistorySummary: Adding process 0x%X.", currentProcessHistory->ProcessId);
 				//
 				// Fill out the summary.
 				//
@@ -630,7 +630,7 @@ ImageHistoryFilter::GetProcessHistorySummary (
 					//
 					// Copy the image name.
 					//
-					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(&ProcessSummaries[currentProcessIndex].ImageFileName), MAX_PATH * sizeof(WCHAR), currentProcessHistory->ProcessImageFileName);
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(&ProcessSummaries[actualFilledSummaries].ImageFileName), MAX_PATH * sizeof(WCHAR), currentProcessHistory->ProcessImageFileName);
 					if (NT_SUCCESS(status) == FALSE)
 					{
 						DBGPRINT("ImageHistoryFilter!GetProcessHistorySummary: Failed to copy the image file name with status 0x%X.", status);
@@ -640,7 +640,7 @@ ImageHistoryFilter::GetProcessHistorySummary (
 				actualFilledSummaries++;
 			}
 			currentProcessIndex++;
-			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Flink);
 		}
 	}
 

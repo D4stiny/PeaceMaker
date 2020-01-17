@@ -18,12 +18,12 @@
     <ClCompile Include="PeaceMaker CLI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="IOCTLCommunication.cpp">
+    <ClCompile Include="IOCTLCommunicationUser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="IOCTLCommunication.h">
+    <ClInclude Include="IOCTLCommunicationUser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

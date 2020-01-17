@@ -116,6 +116,8 @@ StringFilters::AddFilter (
 		InsertTailList(RCAST<PLIST_ENTRY>(this->filtersHead), RCAST<PLIST_ENTRY>(newFilter));
 	}
 
+	this->filtersCount++;
+
 	//
 	// Generate a pseudo-random ID for the filter using the system time.
 	//
