@@ -61,12 +61,13 @@ AlertQueue::PushAlert (
 	//
 	// Allocate space for the new alert and copy the details.
 	//
-	newAlert = RCAST<PBASE_ALERT_INFO>(ExAllocatePoolWithTag(PagedPool, AlertSize, ALERT_QUEUE_ENTRY_TAG));
+	newAlert = RCAST<PBASE_ALERT_INFO>(ExAllocatePoolWithTag(NonPagedPool, AlertSize, ALERT_QUEUE_ENTRY_TAG));
 	if (newAlert == NULL)
 	{
 		DBGPRINT("AlertQueue!PushAlert: Failed to allocate space for new alert.");
 		return;
 	}
+	memset(newAlert, 0, AlertSize);
 	memcpy(newAlert, Alert, AlertSize);
 	newAlert->AlertSize = AlertSize;
 

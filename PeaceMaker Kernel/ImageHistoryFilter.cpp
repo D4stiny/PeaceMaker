@@ -5,12 +5,14 @@ PPROCESS_HISTORY_ENTRY ImageHistoryFilter::ProcessHistoryHead;
 EX_PUSH_LOCK ImageHistoryFilter::ProcessHistoryLock;
 BOOLEAN ImageHistoryFilter::destroying;
 ULONG64 ImageHistoryFilter::ProcessHistorySize;
+PDETECTION_LOGIC ImageHistoryFilter::detector;
 
 /**
 	Register the necessary notify routines.
 	@param InitializeStatus - Status of initialization.
 */
 ImageHistoryFilter::ImageHistoryFilter (
+	_In_ PDETECTION_LOGIC Detector,
 	_Out_ NTSTATUS* InitializeStatus
 	)
 {
@@ -46,6 +48,11 @@ ImageHistoryFilter::ImageHistoryFilter (
 	memset(ImageHistoryFilter::ProcessHistoryHead, 0, sizeof(PROCESS_HISTORY_ENTRY));
 	InitializeListHead(RCAST<PLIST_ENTRY>(ImageHistoryFilter::ProcessHistoryHead));
 	this->ProcessHistorySize = 0;
+
+	//
+	// Set the detector.
+	//
+	ImageHistoryFilter::detector = Detector;
 }
 
 /**
@@ -108,6 +115,11 @@ ImageHistoryFilter::~ImageHistoryFilter (
 					if (currentImageEntry->ImageFileName.Buffer)
 					{
 						ExFreePoolWithTag(currentImageEntry->ImageFileName.Buffer, IMAGE_NAME_TAG);
+					}
+
+					if (currentImageEntry->CallerImageFileName)
+					{
+						ExFreePoolWithTag(currentImageEntry->CallerImageFileName, IMAGE_NAME_TAG);
 					}
 
 					//
@@ -248,6 +260,7 @@ ImageHistoryFilter::AddProcessToHistory (
 		goto Exit;
 	}
 	memset(newProcessHistory->ImageLoadHistory, 0, sizeof(IMAGE_LOAD_HISTORY_ENTRY));
+
 	InitializeListHead(RCAST<PLIST_ENTRY>(newProcessHistory->ImageLoadHistory));
 
 	//
@@ -264,6 +277,16 @@ ImageHistoryFilter::AddProcessToHistory (
 	ImageHistoryFilter::ProcessHistorySize++;
 
 	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+
+	//
+	// Audit the stack.
+	//
+	ImageHistoryFilter::detector->AuditUserStackWalk(ProcessCreate,
+													 newProcessHistory->ProcessId,
+													 newProcessHistory->ParentImageFileName,
+													 newProcessHistory->ProcessImageFileName,
+													 newProcessHistory->CallerStackHistory,
+													 newProcessHistory->CallerStackHistorySize);
 Exit:
 	if (newProcessHistory && NT_SUCCESS(status) == FALSE)
 	{
@@ -502,6 +525,13 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	}
 	memset(newImageLoadHistory, 0, sizeof(IMAGE_LOAD_HISTORY_ENTRY));
 
+	newImageLoadHistory->CallerProcessId = PsGetCurrentProcessId();
+	if (PsGetCurrentProcessId() != ProcessId)
+	{
+		newImageLoadHistory->RemoteImage = TRUE;
+		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &newImageLoadHistory->CallerImageFileName);
+	}
+
 	//
 	// Copy the image file name if it is provided.
 	//
@@ -550,6 +580,16 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	currentProcessHistory->ImageLoadHistorySize++;
 
 	FltReleasePushLock(&currentProcessHistory->ImageLoadHistoryLock);
+
+	//
+	// Audit the stack.
+	//
+	ImageHistoryFilter::detector->AuditUserStackWalk(ImageLoad,
+													 PsGetCurrentProcessId(),
+													 newImageLoadHistory->CallerImageFileName,
+													 &newImageLoadHistory->ImageFileName,
+													 newImageLoadHistory->CallerStackHistory,
+													 newImageLoadHistory->CallerStackHistorySize);
 Exit:
 	//
 	// Release the lock.

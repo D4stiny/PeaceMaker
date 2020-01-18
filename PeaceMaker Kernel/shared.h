@@ -167,8 +167,11 @@ typedef struct BaseAlertInfo
 {
 	LIST_ENTRY Entry;
 	ULONG AlertSize;
-	DETECTION_SOURCE AlertSource;
+	DETECTION_SOURCE AlertSource;	//
 	ALERT_TYPE AlertType;
+	HANDLE SourceId;				// The process id of the source of the alert.
+	WCHAR SourcePath[MAX_PATH];		// The path to the source.
+	WCHAR TargetPath[MAX_PATH];		// The path to the target.
 } BASE_ALERT_INFO, * PBASE_ALERT_INFO;
 
 typedef struct StackViolationAlert

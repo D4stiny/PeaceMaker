@@ -49,7 +49,7 @@ void MainWindow::InitializeAlertsTable()
 
     headers << "Date" << "Alert Name";
     this->ui->AlertsTable->setHorizontalHeaderLabels(headers);
-    this->ui->AlertsTable->setColumnWidth(1, 100);
+    this->ui->AlertsTable->setColumnWidth(0, 200);
 
     InitializeCommonTable(this->ui->AlertsTable);
 
@@ -57,6 +57,8 @@ void MainWindow::InitializeAlertsTable()
     // Add the table as an "associated element".
     //
     this->ui->AlertsLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->AlertsTable));
+    this->ui->AlertsLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->OpenAlertButton));
+    this->ui->AlertsLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->DeleteAlertButton));
 }
 
 /**
@@ -85,6 +87,7 @@ void MainWindow::InitializeProcessesTable()
     this->ui->ProcessesLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->ProcessesTable));
     this->ui->ProcessesLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->InvestigateProcessButton));
     this->ui->ProcessesLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->ProcessSearch));
+    this->ui->ProcessesLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->ProcessSearchLabel));
 }
 
 /**
@@ -163,8 +166,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
                 break;
             }
 
-            This->AddAlertSummary(*currentAlert);
-            free(currentAlert);
+            This->AddAlertSummary(currentAlert);
         }
 
         //
@@ -188,6 +190,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
                         This->AddProcessSummary(processSummaries->ProcessHistory[i]);
                     }
                     free(processSummaries);
+                    This->ui->ProcessesTable->resizeRowsToContents();
                 } else
                 {
                     pmlog("processSummaries is NULL.");
@@ -245,6 +248,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     this->investigatorWindow = new InvestigateProcessWindow();
     this->investigatorWindow->communicator = &this->communicator;
+    this->alertWindow = new DetailedAlertWindow();
 
     CreateThread(NULL, 0, RCAST<LPTHREAD_START_ROUTINE>(this->ThreadUpdateTables), this, 0, NULL);
 }
@@ -253,6 +257,7 @@ MainWindow::~MainWindow()
 {
     delete ui;
     delete investigatorWindow;
+    delete alertWindow;
 }
 
 void MainWindow::NotifyTabClick(ClickableTab *tab)
@@ -272,7 +277,7 @@ void MainWindow::NotifyTabClick(ClickableTab *tab)
     activeTab->SwapActiveState();
 }
 
-void MainWindow::AddAlertSummary(BASE_ALERT_INFO Alert)
+void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
 {
     std::time_t currentTime;
     std::string date;
@@ -283,11 +288,12 @@ void MainWindow::AddAlertSummary(BASE_ALERT_INFO Alert)
     //
     currentTime = std::time(nullptr);
     date = std::ctime(&currentTime);
+    date[date.length()-1] = '\0'; // Remove the newline.
 
     //
     // Determine the alert type.
     //
-    switch(Alert.AlertType)
+    switch(Alert->AlertType)
     {
     case StackViolation:
         alertName = "Stack Violation";
@@ -312,13 +318,14 @@ void MainWindow::AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary)
 {
     std::time_t processExecutionDate;
     std::string dateString;
+    QTableWidgetItem* pathItem;
 
     //
     // First, we need to convert the epoch time to a date.
     //
     processExecutionDate = ProcessSummary.EpochExecutionTime;
     dateString = std::ctime(&processExecutionDate);
-    dateString.erase(std::remove(dateString.begin(), dateString.end(), '\n'), dateString.end());
+    dateString[dateString.length()-1] = '\0'; // Remove the newline.
 
     //
     // Next, add the appropriate information to the table.
@@ -327,8 +334,11 @@ void MainWindow::AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary)
     this->ui->ProcessesTable->insertRow(0);
     this->ui->ProcessesTable->setItem(0, 0, new QTableWidgetItem(QString::number(RCAST<ULONG64>(ProcessSummary.ProcessId))));
     this->ui->ProcessesTable->setItem(0, 1, new QTableWidgetItem(QString::fromStdString(dateString)));
-    this->ui->ProcessesTable->setItem(0, 2, new QTableWidgetItem(QString::fromWCharArray(ProcessSummary.ImageFileName)));
-    this->ui->ProcessesTable->resizeRowsToContents();
+
+    pathItem = new QTableWidgetItem(QString::fromWCharArray(ProcessSummary.ImageFileName));
+    pathItem->setToolTip(QString::fromWCharArray(ProcessSummary.ImageFileName));
+    this->ui->ProcessesTable->setItem(0, 2, pathItem);
+    //this->ui->ProcessesTable->resizeRowsToContents();
     this->ProcessesTableSize++;
 
     processes.push_back(ProcessSummary);
@@ -404,7 +414,12 @@ void MainWindow::on_InvestigateProcessButton_clicked()
         return;
     }
 
-    selectedRow = this->ui->ProcessesTable->selectedItems()[0]->row();
+    //
+    // Since rows start from 0, we need to subtract
+    // the row count from the table size to get the
+    // right index.
+    //
+    selectedRow = processes.size() - 1 - this->ui->ProcessesTable->selectedItems()[0]->row();
 
     processSizes = communicator.GetProcessSizes(processes[selectedRow].ProcessId, processes[selectedRow].EpochExecutionTime);
     processDetailed = communicator.RequestDetailedProcess(processes[selectedRow].ProcessId, processes[selectedRow].EpochExecutionTime, processSizes.ImageSize, processSizes.StackSize);
@@ -418,4 +433,76 @@ void MainWindow::on_InvestigateProcessButton_clicked()
     free(processDetailed);
     this->investigatorWindow->show();
     this->investigatorWindow->RefreshWidgets();
+}
+
+void MainWindow::on_ProcessSearch_editingFinished()
+{
+    QList<QTableWidgetItem*> searchResults;
+    QModelIndexList indexList;
+    int firstSelectedRow;
+    QTableWidgetItem* nextWidgetItem;
+
+    nextWidgetItem = NULL;
+
+    indexList = this->ui->ProcessesTable->selectionModel()->selectedIndexes();
+    if(indexList.count() >= 1)
+    {
+        firstSelectedRow = indexList[0].row();
+    }
+    else
+    {
+        firstSelectedRow = 0;
+    }
+
+
+    //
+    // Search for the first widget after whatever row I have selected.
+    // Allows for searching of multiple items, not just one.
+    //
+    searchResults = this->ui->ProcessesTable->findItems(this->ui->ProcessSearch->text(), Qt::MatchContains);
+    for(QTableWidgetItem* result : searchResults)
+    {
+        if(result->row() > firstSelectedRow)
+        {
+            nextWidgetItem = result;
+            break;
+        }
+    }
+    if(nextWidgetItem)
+    {
+        this->ui->ProcessesTable->selectRow(nextWidgetItem->row());
+    }
+}
+
+void MainWindow::on_OpenAlertButton_clicked()
+{
+    int selectedRow;
+
+    if(this->ui->AlertsTable->selectedItems().size() == 0)
+    {
+        return;
+    }
+
+    //
+    // Since rows start from 0, we need to subtract
+    // the row count from the table size to get the
+    // right index.
+    //
+    selectedRow = alerts.size() - 1 - this->ui->AlertsTable->selectedItems()[0]->row();
+
+    alertWindow->UpdateDisplayAlert(alerts[selectedRow]);
+    alertWindow->show();
+}
+
+void MainWindow::on_DeleteAlertButton_clicked()
+{
+    int selectedRow;
+
+    if(this->ui->AlertsTable->selectedItems().size() == 0)
+    {
+        return;
+    }
+
+    selectedRow = this->ui->AlertsTable->selectedItems()[0]->row();
+    this->ui->AlertsTable->removeRow(selectedRow);
 }

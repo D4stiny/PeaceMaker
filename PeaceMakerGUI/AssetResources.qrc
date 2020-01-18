@@ -15,5 +15,8 @@
         <file>assets/CreatorStackHistory.png</file>
         <file>assets/Images.png</file>
         <file>assets/ImageStackHistory.png</file>
+        <file>assets/Search.png</file>
+        <file>assets/AlertDetails.png</file>
+        <file>assets/AlertStackHistory.png</file>
     </qresource>
 </RCC>

@@ -105,6 +105,7 @@ InvestigateProcessWindow::InvestigateProcessWindow(QWidget *parent) :
     ui(new Ui::InvestigateProcessWindow)
 {
     ui->setupUi(this);
+
     SymSetOptions(SYMOPT_UNDNAME);
     SymInitialize(GetCurrentProcess(), nullptr, TRUE);
 
@@ -134,7 +135,9 @@ void InvestigateProcessWindow::UpdateNewProcess(PROCESS_DETAILED_REQUEST detaile
     PSYMBOL_INFO currentSymbolInformation;
     ULONG64 offset;
     QString stackHistoryString;
+    QString tooltip;
     QTableWidgetItem* newWidget;
+    bool stackHistoryViolation;
 
     memset(tempBuffer, 0, sizeof(tempBuffer));
     currentSymbolInformation = RCAST<PSYMBOL_INFO>(tempBuffer);
@@ -146,7 +149,7 @@ void InvestigateProcessWindow::UpdateNewProcess(PROCESS_DETAILED_REQUEST detaile
     //
     processExecutionDate = detailedProcessInformation.EpochExecutionTime;
     dateString = std::ctime(&processExecutionDate);
-    dateString.erase(std::remove(dateString.begin(), dateString.end(), '\n'), dateString.end());
+    dateString[dateString.length()-1] = '\0'; // Remove the newline.
 
     this->ProcessId = detailedProcessInformation.ProcessId;
     this->EpochExecutionTime = detailedProcessInformation.EpochExecutionTime;
@@ -190,21 +193,38 @@ void InvestigateProcessWindow::UpdateNewProcess(PROCESS_DETAILED_REQUEST detaile
     for(i = 0; i < detailedProcessInformation.StackHistorySize; i++)
     {
         stackHistoryString = "";
+        stackHistoryViolation = false;
         //
         // First, try a symbol lookup.
         //
         if(SymFromAddr(GetCurrentProcess(), RCAST<DWORD64>(detailedProcessInformation.StackHistory[i].RawAddress), &offset, currentSymbolInformation))
         {
             stackHistoryString = stackHistoryString.sprintf("%s+0x%llx", currentSymbolInformation->Name, offset);
+            tooltip = stackHistoryString.sprintf("%ls+0x%llx", detailedProcessInformation.StackHistory[i].BinaryPath, detailedProcessInformation.StackHistory[i].BinaryOffset);
         }
         else
         {
-            stackHistoryString = stackHistoryString.sprintf("%ls+0x%llx", detailedProcessInformation.StackHistory[i].BinaryPath, detailedProcessInformation.StackHistory[i].BinaryOffset);
+            printf("Failed SymFromAddr %i.\n", GetLastError());
+
+            if(wcslen(detailedProcessInformation.StackHistory[i].BinaryPath) == 0)
+            {
+                stackHistoryString = stackHistoryString.sprintf("0x%llx", detailedProcessInformation.StackHistory[i].RawAddress);
+                stackHistoryViolation = true;
+            }
+            else
+            {
+                stackHistoryString = stackHistoryString.sprintf("%ls+0x%llx", detailedProcessInformation.StackHistory[i].BinaryPath, detailedProcessInformation.StackHistory[i].BinaryOffset);
+            }
+            tooltip = stackHistoryString;
         }
 
         this->ui->ProcessStackHistoryTable->setRowCount(i + 1);
         newWidget = new QTableWidgetItem(stackHistoryString);
-        newWidget->setToolTip(stackHistoryString);
+        newWidget->setToolTip(tooltip);
+        if(stackHistoryViolation)
+        {
+            newWidget->setBackground(Qt::red);
+        }
         this->ui->ProcessStackHistoryTable->setItem(i, 0, newWidget);
         this->ui->ProcessStackHistoryTable->resizeRowsToContents();
     }
@@ -240,6 +260,8 @@ void InvestigateProcessWindow::RefreshWidgets()
     UpdateWidget(this->ui->ProcessStackHistoryTable);
     UpdateWidget(this->ui->ImagesTable);
     UpdateWidget(this->ui->ImageStackHistoryTable);
+    UpdateWidget(this);
+    this->setStyleSheet("background-color: #404040;");
 }
 
 /**
@@ -253,10 +275,12 @@ void InvestigateProcessWindow::on_ImagesTable_cellClicked(int row, int column)
     PIMAGE_DETAILED_REQUEST imageDetailed;
     ULONG i;
     QString stackHistoryString;
+    QString tooltip;
     CHAR tempBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME];
     PSYMBOL_INFO currentSymbolInformation;
     ULONG64 offset;
     QTableWidgetItem* newWidget;
+    bool stackHistoryViolation;
 
     memset(tempBuffer, 0, sizeof(tempBuffer));
     currentSymbolInformation = RCAST<PSYMBOL_INFO>(tempBuffer);
@@ -276,21 +300,41 @@ void InvestigateProcessWindow::on_ImagesTable_cellClicked(int row, int column)
     this->ui->ImageStackHistoryTable->setRowCount(imageDetailed->StackHistorySize);
     for(i = 0; i < imageDetailed->StackHistorySize; i++)
     {
+        stackHistoryViolation = false;
         //
         // First, try a symbol lookup.
         //
         if(SymFromAddr(GetCurrentProcess(), RCAST<DWORD64>(imageDetailed->StackHistory[i].RawAddress), &offset, currentSymbolInformation))
         {
             stackHistoryString = stackHistoryString.sprintf("%s+0x%llx", currentSymbolInformation->Name, offset);
+            tooltip = stackHistoryString.sprintf("%ls+0x%llx", imageDetailed->StackHistory[i].BinaryPath, imageDetailed->StackHistory[i].BinaryOffset);
         }
         else
         {
-            stackHistoryString = stackHistoryString.sprintf("%ls+0x%llx", imageDetailed->StackHistory[i].BinaryPath, imageDetailed->StackHistory[i].BinaryOffset);
+            if(wcslen(imageDetailed->StackHistory[i].BinaryPath) == 0)
+            {
+                stackHistoryString = stackHistoryString.sprintf("0x%llx", imageDetailed->StackHistory[i].RawAddress);
+                stackHistoryViolation = true;
+            }
+            else
+            {
+                stackHistoryString = stackHistoryString.sprintf("%ls+0x%llx", imageDetailed->StackHistory[i].BinaryPath, imageDetailed->StackHistory[i].BinaryOffset);
+            }
+
+            tooltip = stackHistoryString;
         }
 
         this->ui->ImageStackHistoryTable->setRowCount(i + 1);
         newWidget = new QTableWidgetItem(stackHistoryString);
-        newWidget->setToolTip(stackHistoryString);
+
+        //
+        // Always set the tooltip to the expanded version.
+        //
+        newWidget->setToolTip(tooltip);
+        if(stackHistoryViolation)
+        {
+            newWidget->setBackground(Qt::red);
+        }
         this->ui->ImageStackHistoryTable->setItem(i, 0, newWidget);
         this->ui->ImageStackHistoryTable->resizeRowsToContents();
     }

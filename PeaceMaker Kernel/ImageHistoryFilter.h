@@ -2,6 +2,7 @@
 #include "common.h"
 #include "StackWalker.h"
 #include "shared.h"
+#include "DetectionLogic.h"
 
 #define IMAGE_NAME_TAG 'nImP'
 #define PROCESS_HISTORY_TAG 'hPmP'
@@ -12,6 +13,9 @@ typedef struct ImageLoadHistoryEntry
 {
 	LIST_ENTRY ListEntry;					// The list entry to iterate multiple images in a process.
 	UNICODE_STRING ImageFileName;			// The full image file name of loaded image.
+	HANDLE CallerProcessId;					// The real caller of the load image routine.
+	BOOLEAN RemoteImage;					// Whether or not the image was loaded remotely.
+	PUNICODE_STRING CallerImageFileName;		// The full image file name of the caller. Only specified if RemoteImage == TRUE.
 	PSTACK_RETURN_INFO CallerStackHistory;	// A variable-length array of the stack that loaded the image.
 	ULONG CallerStackHistorySize;			// The size of the variable-length stack history array.
 } IMAGE_LOAD_HISTORY_ENTRY, *PIMAGE_LOAD_HISTORY_ENTRY;
@@ -59,6 +63,7 @@ typedef class ImageHistoryFilter
 	static PPROCESS_HISTORY_ENTRY ProcessHistoryHead;	// Linked-list of process history objects.
 	static EX_PUSH_LOCK ProcessHistoryLock;				// Lock protecting the ProcessHistory linked-list.
 	static BOOLEAN destroying;							// This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
+	static PDETECTION_LOGIC detector;
 
 	static BOOLEAN GetProcessImageFileName (
 		_In_ HANDLE ProcessId,
@@ -75,7 +80,8 @@ typedef class ImageHistoryFilter
 		);
 
 public:
-	ImageHistoryFilter (
+	ImageHistoryFilter(
+		_In_ PDETECTION_LOGIC Detector,
 		_Out_ NTSTATUS* InitializeStatus
 		);
 	~ImageHistoryFilter(VOID);

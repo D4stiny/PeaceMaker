@@ -147,6 +147,9 @@
       <height>31</height>
      </rect>
     </property>
+    <property name="visible">
+     <bool>false</bool>
+    </property>
     <property name="styleSheet">
      <string notr="true">background: white;</string>
     </property>
@@ -163,8 +166,59 @@
       <height>21</height>
      </rect>
     </property>
+    <property name="visible">
+     <bool>false</bool>
+    </property>
     <property name="styleSheet">
      <string notr="true">background: white;</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="ProcessSearchLabel">
+    <property name="geometry">
+     <rect>
+      <x>75</x>
+      <y>560</y>
+      <width>49</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="visible">
+     <bool>false</bool>
+    </property>
+    <property name="text">
+     <string>&lt;img src=&quot;:/assets/Search.png&quot;/&gt;</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="OpenAlertButton">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>570</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: white;</string>
+    </property>
+    <property name="text">
+     <string>Open Alert</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="DeleteAlertButton">
+    <property name="geometry">
+     <rect>
+      <x>170</x>
+      <y>570</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: white;</string>
+    </property>
+    <property name="text">
+     <string>Delete Alert</string>
     </property>
    </widget>
    <zorder>FiltersTable</zorder>
@@ -178,6 +232,9 @@
    <zorder>CopyrightLabel</zorder>
    <zorder>InvestigateProcessButton</zorder>
    <zorder>ProcessSearch</zorder>
+   <zorder>ProcessSearchLabel</zorder>
+   <zorder>OpenAlertButton</zorder>
+   <zorder>DeleteAlertButton</zorder>
   </widget>
  </widget>
  <customwidgets>

@@ -12,6 +12,9 @@ typedef class DetectionLogic
 	VOID PushStackViolationAlert (
 		_In_ DETECTION_SOURCE DetectionSource,
 		_In_ PVOID ViolatingAddress,
+		_In_ HANDLE SourceProcessId,
+		_In_ PUNICODE_STRING SourcePath,
+		_In_ PUNICODE_STRING TargetPath,
 		_In_ STACK_RETURN_INFO StackHistory[],
 		_In_ ULONG StackHistorySize
 		);
@@ -26,6 +29,9 @@ public:
 
 	VOID AuditUserStackWalk (
 		_In_ DETECTION_SOURCE DetectionSource,
+		_In_ HANDLE SourceProcessId,
+		_In_ PUNICODE_STRING SourcePath,
+		_In_ PUNICODE_STRING TargetPath,
 		_In_ STACK_RETURN_INFO StackHistory[],
 		_In_ ULONG StackHistorySize
 		);
@@ -33,6 +39,9 @@ public:
 	VOID AuditUserPointer (
 		_In_ DETECTION_SOURCE DetectionSource,
 		_In_ PVOID UserPtr,
+		_In_ HANDLE SourceProcessId,
+		_In_ PUNICODE_STRING SourcePath,
+		_In_ PUNICODE_STRING TargetPath,
 		_In_ STACK_RETURN_INFO StackHistory[],
 		_In_ ULONG StackHistorySize
 		);

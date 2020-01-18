@@ -12,6 +12,7 @@
 #include <vector>
 #include "shared.h"
 #include "InvestigateProcessWindow.h"
+#include "detailedalertwindow.h"
 #include "ClickableTab.h"
 #include "IOCTLCommunicationUser.h"
 
@@ -36,7 +37,7 @@ class MainWindow : public QMainWindow
     int FilesystemFiltersCount;
     int RegistryFiltersCount;
 
-    std::vector<BASE_ALERT_INFO> alerts;
+    std::vector<PBASE_ALERT_INFO> alerts;
     std::vector<PROCESS_SUMMARY_ENTRY> processes;
     std::vector<FILTER_INFO> filters;
 
@@ -51,6 +52,7 @@ class MainWindow : public QMainWindow
     static void ThreadUpdateTables(MainWindow* This);
 
     InvestigateProcessWindow* investigatorWindow;
+    DetailedAlertWindow* alertWindow;
 
 public:
     MainWindow(QWidget *parent = nullptr);
@@ -58,7 +60,7 @@ public:
 
     void NotifyTabClick(ClickableTab* tab);
 
-    void AddAlertSummary(BASE_ALERT_INFO Alert);
+    void AddAlertSummary(PBASE_ALERT_INFO Alert);
     void AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary);
     void AddFilterSummary(FILTER_INFO FilterInfo);
 
@@ -66,10 +68,15 @@ public:
     void ActivateProcessesWindow();
     void ActivateFiltersWindow();
     void ActivateConfigWindow();
-
 private slots:
 
     void on_InvestigateProcessButton_clicked();
+
+    void on_ProcessSearch_editingFinished();
+
+    void on_OpenAlertButton_clicked();
+
+    void on_DeleteAlertButton_clicked();
 
 private:
     Ui::MainWindow *ui;

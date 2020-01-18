@@ -32,7 +32,7 @@ IOCTLCommunication::IOCTLCommunication (
 		return;
 	}
 
-	this->ImageProcessFilter = new (NonPagedPool, IMAGE_HISTORY_FILTER_TAG) ImageHistoryFilter(InitializeStatus);
+	this->ImageProcessFilter = new (NonPagedPool, IMAGE_HISTORY_FILTER_TAG) ImageHistoryFilter(this->Detector, InitializeStatus);
 	if (NT_SUCCESS(*InitializeStatus) == FALSE)
 	{
 		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize image process history filter with status 0x%X.", *InitializeStatus);
@@ -188,7 +188,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 			goto Exit;
 		}
 
-		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Got alert 0x%llx for IOCTL_POP_ALERT.\n", poppedAlert);
+		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Got alert 0x%llx for IOCTL_POP_ALERT with size 0x%llx.\n", poppedAlert, poppedAlert->AlertSize);
 
 		//
 		// Copy the alert.

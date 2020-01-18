@@ -18,16 +18,19 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     ClickableTab.cpp \
     InvestigateProcessWindow.cpp \
+    detailedalertwindow.cpp \
     main.cpp \
     mainwindow.cpp
 
 HEADERS += \
     ClickableTab.h \
     InvestigateProcessWindow.h \
+    detailedalertwindow.h \
     mainwindow.h
 
 FORMS += \
     InvestigateProcessWindow.ui \
+    detailedalertwindow.ui \
     mainwindow.ui
 
 # Default rules for deployment.
