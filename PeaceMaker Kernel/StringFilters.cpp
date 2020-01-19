@@ -10,7 +10,8 @@ StringFilters::StringFilters()
 	//
 	FltInitializePushLock(&this->filtersLock);
 
-	this->filtersHead = NULL;
+	this->filtersHead = RCAST<PFILTER_INFO_LINKED>(ExAllocatePoolWithTag(NonPagedPool, sizeof(FILTER_INFO_LINKED), FILTER_INFO_TAG));
+	InitializeListHead(RCAST<PLIST_ENTRY>(this->filtersHead));
 	this->destroying = FALSE;
 }
 
@@ -100,21 +101,7 @@ StringFilters::AddFilter (
 
 	memset(RCAST<PVOID>(newFilter), 0, sizeof(FILTER_INFO_LINKED));
 
-	//
-	// Check if the list has been initialized.
-	//
-	if (this->filtersHead == NULL)
-	{
-		this->filtersHead = newFilter;
-		InitializeListHead(RCAST<PLIST_ENTRY>(this->filtersHead));
-	}
-	//
-	// Otherwise, just append the element to the end of the list.
-	//
-	else
-	{
-		InsertTailList(RCAST<PLIST_ENTRY>(this->filtersHead), RCAST<PLIST_ENTRY>(newFilter));
-	}
+	InsertTailList(RCAST<PLIST_ENTRY>(this->filtersHead), RCAST<PLIST_ENTRY>(newFilter));
 
 	this->filtersCount++;
 
@@ -182,25 +169,16 @@ StringFilters::RemoveFilter(
 	//
 	if (this->filtersHead)
 	{
-		currentFilter = this->filtersHead;
+		currentFilter = RCAST<PFILTER_INFO_LINKED>(this->filtersHead->ListEntry.Flink);
 
-		//
-		// Check if the filter to remove is the head.
-		//
-		if (currentFilter->Filter.Id == FilterId)
-		{
-			this->filtersHead = NULL;
-			goto Exit;
-		}
-
-		do
+		while (currentFilter && currentFilter != this->filtersHead)
 		{
 			if (currentFilter->Filter.Id == FilterId)
 			{
 				break;
 			}
 			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
-		} while (currentFilter && currentFilter != this->filtersHead);
+		}
 		
 		//
 		// Remove the entry from the list.
@@ -211,7 +189,7 @@ StringFilters::RemoveFilter(
 			filterDeleted = TRUE;
 		}
 	}
-Exit:
+
 	//
 	// Release the lock.
 	//
@@ -272,8 +250,8 @@ StringFilters::MatchesFilter (
 	//
 	if (this->filtersHead)
 	{
-		currentFilter = this->filtersHead;
-		do
+		currentFilter = RCAST<PFILTER_INFO_LINKED>(this->filtersHead->ListEntry.Flink);
+		while (currentFilter && currentFilter != this->filtersHead)
 		{
 			//
 			// Check if the string to compare contains the filter.
@@ -285,7 +263,7 @@ StringFilters::MatchesFilter (
 				goto Exit;
 			}
 			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
-		} while (currentFilter && currentFilter != this->filtersHead);
+		}
 	}
 Exit:
 	FltReleasePushLock(&this->filtersLock);
@@ -323,8 +301,8 @@ StringFilters::GetFilters (
 	//
 	if (this->filtersHead)
 	{
-		currentFilter = this->filtersHead;
-		do
+		currentFilter = RCAST<PFILTER_INFO_LINKED>(this->filtersHead->ListEntry.Flink);
+		while (currentFilter && currentFilter != this->filtersHead && copyCount < FiltersSize)
 		{
 			if (skipCount >= SkipFilters)
 			{
@@ -334,7 +312,7 @@ StringFilters::GetFilters (
 			}
 			skipCount++;
 			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
-		} while (currentFilter && currentFilter != this->filtersHead && copyCount < FiltersSize);
+		}
 	}
 
 	FltReleasePushLock(&this->filtersLock);

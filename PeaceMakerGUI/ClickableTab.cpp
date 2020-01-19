@@ -23,6 +23,9 @@ ClickableTab::ClickableTab(QWidget* parent, Qt::WindowFlags f)
 
 ClickableTab::~ClickableTab() {}
 
+/**
+ * @brief ClickableTab::SwapActiveState - Swap the "state" of the tab. If was clicked, remove underline, otherwise add underline.
+ */
 void ClickableTab::SwapActiveState()
 {
     int statusPosition;

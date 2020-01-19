@@ -13,6 +13,7 @@
 #include "shared.h"
 #include "InvestigateProcessWindow.h"
 #include "detailedalertwindow.h"
+#include "addfilterwindow.h"
 #include "ClickableTab.h"
 #include "IOCTLCommunicationUser.h"
 
@@ -53,7 +54,7 @@ class MainWindow : public QMainWindow
 
     InvestigateProcessWindow* investigatorWindow;
     DetailedAlertWindow* alertWindow;
-
+    AddFilterWindow* addFilterWindow;
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
@@ -77,6 +78,10 @@ private slots:
     void on_OpenAlertButton_clicked();
 
     void on_DeleteAlertButton_clicked();
+
+    void on_AddFilterButton_clicked();
+
+    void on_DeleteFilterButton_clicked();
 
 private:
     Ui::MainWindow *ui;

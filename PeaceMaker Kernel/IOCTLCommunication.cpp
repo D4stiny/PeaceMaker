@@ -136,6 +136,7 @@ IOCTLCommunication::IOCTLDeviceControl (
 	PSTRING_FILTER_REQUEST filterAddRequest;
 	PLIST_FILTERS_REQUEST listFiltersRequest;
 	PIMAGE_DETAILED_REQUEST imageDetailedRequest;
+	PDELETE_FILTER_REQUEST deleteFilterRequest;
 	PGLOBAL_SIZES globalSizes;
 
 	WCHAR temporaryFilterBuffer[MAX_PATH];
@@ -413,6 +414,29 @@ IOCTLCommunication::IOCTLDeviceControl (
 		globalSizes->FilesystemFilterSize = FilesystemMonitor->GetStringFilters()->filtersCount;
 		globalSizes->RegistryFilterSize = RegistryMonitor->GetStringFilters()->filtersCount;
 		writtenLength = sizeof(GLOBAL_SIZES);
+		break;
+	case IOCTL_DELETE_FILTER:
+		//
+		// Validate the size of the input buffer.
+		//
+		if (inputLength < sizeof(DELETE_FILTER_REQUEST))
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Received IOCTL_DELETE_FILTER but input buffer is too small.");
+			status = STATUS_INSUFFICIENT_RESOURCES;
+			goto Exit;
+		}
+
+		deleteFilterRequest = RCAST<PDELETE_FILTER_REQUEST>(Irp->AssociatedIrp.SystemBuffer);
+		switch (deleteFilterRequest->FilterType)
+		{
+		case FilesystemFilter:
+			deleteFilterRequest->Deleted = FilesystemMonitor->GetStringFilters()->RemoveFilter(deleteFilterRequest->FilterId);
+			break;
+		case RegistryFilter:
+			deleteFilterRequest->Deleted = RegistryMonitor->GetStringFilters()->RemoveFilter(deleteFilterRequest->FilterId);
+			break;
+		}
+		writtenLength = sizeof(DELETE_FILTER_REQUEST);
 		break;
 	}
 

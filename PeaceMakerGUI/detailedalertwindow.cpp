@@ -24,19 +24,12 @@ void DetailedAlertWindow::InitializeCommonTable(QTableWidget *table)
     table->horizontalHeader()->setVisible(false);
 }
 
-void DetailedAlertWindow::InitializeStackViolationAlertTable()
-{
-    this->ui->AlertDetailsTable->setColumnCount(2);
-    InitializeCommonTable(this->ui->AlertDetailsTable);
-}
-
 DetailedAlertWindow::DetailedAlertWindow(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::DetailedAlertWindow)
 {
     ui->setupUi(this);
     this->setFixedSize(QSize(400, 550));
-    InitializeStackViolationAlertTable();
 
     SymSetOptions(SYMOPT_UNDNAME);
     SymInitialize(GetCurrentProcess(), nullptr, TRUE);
@@ -47,6 +40,10 @@ DetailedAlertWindow::~DetailedAlertWindow()
     delete ui;
 }
 
+/**
+ * @brief DetailedAlertWindow::UpdateDisplayAlert - Update the window to display alert details based on AlertInfo.
+ * @param AlertInfo - The new alert to display.
+ */
 void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
 {
     QString alertName;
@@ -73,6 +70,7 @@ void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
 
     this->ui->AlertDetailsTable->setColumnCount(2);
     this->ui->AlertDetailsTable->setRowCount(6);
+    InitializeCommonTable(this->ui->AlertDetailsTable);
 
     //
     // Fill out basic fields.

@@ -18,5 +18,8 @@
         <file>assets/Search.png</file>
         <file>assets/AlertDetails.png</file>
         <file>assets/AlertStackHistory.png</file>
+        <file>assets/FilterContent.png</file>
+        <file>assets/FilterFlags.png</file>
+        <file>assets/FilterType.png</file>
     </qresource>
 </RCC>

@@ -382,8 +382,12 @@ Exit:
 	return imageRequest;
 }
 
+/**
+	Get global sizes from the kernel
+	@return The various sizes of data stored in the kernel.
+*/
 GLOBAL_SIZES
-IOCTLCommunication::GetGlobalSizes(
+IOCTLCommunication::GetGlobalSizes (
 	VOID
 	)
 {
@@ -398,4 +402,30 @@ IOCTLCommunication::GetGlobalSizes(
 	}
 
 	return sizes;
+}
+
+/**
+	Delete a filter.
+	@param Filter - The filter to delete.
+	@return Whether or not the filter was deleted.
+*/
+BOOLEAN
+IOCTLCommunication::DeleteFilter (
+	_In_ FILTER_INFO Filter
+	)
+{
+	DELETE_FILTER_REQUEST deleteFilterRequest;
+
+	deleteFilterRequest.FilterId = Filter.Id;
+	deleteFilterRequest.FilterType = Filter.Type;
+
+	//
+	// Query the driver passing in the delete request.
+	//
+	if (this->GenericQueryDriver(IOCTL_DELETE_FILTER, &deleteFilterRequest, sizeof(deleteFilterRequest), &deleteFilterRequest, sizeof(deleteFilterRequest)) == FALSE)
+	{
+		printf("IOCTLCommunication!DeleteFilter: Failed to query driver with error code %i.\n", GetLastError());
+	}
+
+	return deleteFilterRequest.Deleted;
 }

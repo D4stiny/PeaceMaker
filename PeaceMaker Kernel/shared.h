@@ -18,6 +18,7 @@
 #define IOCTL_GET_IMAGE_DETAILED	CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x7, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 #define IOCTL_GET_PROCESS_SIZES		CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x8, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 #define IOCTL_GET_GLOBAL_SIZES		CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x9, METHOD_BUFFERED, FILE_WRITE_DATA)
+#define IOCTL_DELETE_FILTER			CTL_CODE(FILE_DEVICE_NAMED_PIPE, 0x10, METHOD_BUFFERED, FILE_READ_DATA | FILE_WRITE_DATA)
 
 #define RCAST reinterpret_cast
 #define SCAST static_cast
@@ -165,10 +166,10 @@ typedef enum DetectionSource
 
 typedef struct BaseAlertInfo
 {
-	LIST_ENTRY Entry;
-	ULONG AlertSize;
-	DETECTION_SOURCE AlertSource;	//
-	ALERT_TYPE AlertType;
+	LIST_ENTRY Entry;				// The LIST_ENTRY details.
+	ULONG AlertSize;				// The size (in bytes) of the structure.
+	DETECTION_SOURCE AlertSource;	// The source of the alert.
+	ALERT_TYPE AlertType;			// The type of alert.
 	HANDLE SourceId;				// The process id of the source of the alert.
 	WCHAR SourcePath[MAX_PATH];		// The path to the source.
 	WCHAR TargetPath[MAX_PATH];		// The path to the target.
@@ -206,3 +207,10 @@ typedef struct GlobalSizes
 	ULONG64 FilesystemFilterSize;
 	ULONG64 RegistryFilterSize;
 } GLOBAL_SIZES, *PGLOBAL_SIZES;
+
+typedef struct DeleteFilterRequest
+{
+	ULONG FilterId;					// Unique ID of the filter used to remove entries.
+	STRING_FILTER_TYPE FilterType;	// The general target of the filter (Filesystem/Registry).
+	BOOLEAN Deleted;				// Whether or not the filter was deleted.
+} DELETE_FILTER_REQUEST, *PDELETE_FILTER_REQUEST;

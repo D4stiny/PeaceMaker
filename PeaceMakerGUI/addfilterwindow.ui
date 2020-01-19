@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>AddFilterWindow</class>
+ <widget class="QWidget" name="AddFilterWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>300</width>
+    <height>240</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Add Filter</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="AssetResources.qrc">
+    <normaloff>:/assets/PeaceMakerIcon.ico</normaloff>:/assets/PeaceMakerIcon.ico</iconset>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: #404040;</string>
+  </property>
+  <widget class="QLineEdit" name="FilterContent">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>100</y>
+     <width>241</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: white;</string>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="FilterTypeBox">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>40</y>
+     <width>241</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: white;</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="DeleteFlag">
+   <property name="geometry">
+    <rect>
+     <x>50</x>
+     <y>160</y>
+     <width>65</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: white;</string>
+   </property>
+   <property name="text">
+    <string>Delete</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="WriteFlag">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>160</y>
+     <width>61</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: white;</string>
+   </property>
+   <property name="text">
+    <string>Write</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="ExecuteFlag">
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>160</y>
+     <width>70</width>
+     <height>18</height>
+    </rect>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color: white;</string>
+   </property>
+   <property name="text">
+    <string>Execute</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="pushButton">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>200</y>
+     <width>241</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">background-color: white;</string>
+   </property>
+   <property name="text">
+    <string>Add Filter</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="FilterTypeLabel">
+   <property name="geometry">
+    <rect>
+     <x>115</x>
+     <y>15</y>
+     <width>71</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;img src=&quot;:/assets/FilterType.png&quot;/&gt;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="FilterContentLabel">
+   <property name="geometry">
+    <rect>
+     <x>105</x>
+     <y>80</y>
+     <width>94</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;img src=&quot;:/assets/FilterContent.png&quot;/&gt;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="FilterFlagsLabel">
+   <property name="geometry">
+    <rect>
+     <x>110</x>
+     <y>140</y>
+     <width>78</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;img src=&quot;:/assets/FilterFlags.png&quot;/&gt;</string>
+   </property>
+  </widget>
+ </widget>
+ <resources>
+  <include location="AssetResources.qrc"/>
+ </resources>
+ <connections/>
+</ui>

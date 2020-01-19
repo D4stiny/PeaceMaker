@@ -18,8 +18,6 @@ class DetailedAlertWindow : public QWidget
     Q_OBJECT
 
     void InitializeCommonTable(QTableWidget* table);
-
-    void InitializeStackViolationAlertTable();
 public:
     explicit DetailedAlertWindow(QWidget *parent = nullptr);
     ~DetailedAlertWindow();

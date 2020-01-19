@@ -101,8 +101,8 @@ void MainWindow::InitializeFiltersTable()
     this->FilesystemFiltersCount = 0;
     this->RegistryFiltersCount = 0;
 
-    this->ui->FiltersTable->setColumnCount(2);
-    this->ui->FiltersTable->setRowCount(100);
+    this->ui->FiltersTable->setColumnCount(3);
+    this->ui->FiltersTable->setRowCount(0);
 
     headers << "Filter Type" << "Filter Flags" << "Filter Content";
     this->ui->FiltersTable->setHorizontalHeaderLabels(headers);
@@ -114,6 +114,8 @@ void MainWindow::InitializeFiltersTable()
     // Add the table as an "associated element".
     //
     this->ui->FiltersLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->FiltersTable));
+    this->ui->FiltersLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->AddFilterButton));
+    this->ui->FiltersLabel->AddAssociatedElement(RCAST<QWidget*>(this->ui->DeleteFilterButton));
 }
 
 /**
@@ -249,6 +251,8 @@ MainWindow::MainWindow(QWidget *parent)
     this->investigatorWindow = new InvestigateProcessWindow();
     this->investigatorWindow->communicator = &this->communicator;
     this->alertWindow = new DetailedAlertWindow();
+    this->addFilterWindow = new AddFilterWindow();
+    this->addFilterWindow->communicator = &this->communicator;
 
     CreateThread(NULL, 0, RCAST<LPTHREAD_START_ROUTINE>(this->ThreadUpdateTables), this, 0, NULL);
 }
@@ -260,6 +264,10 @@ MainWindow::~MainWindow()
     delete alertWindow;
 }
 
+/**
+ * @brief MainWindow::NotifyTabClick - Swap the active tab when a click is detected.
+ * @param tab - The tab to swap to.
+ */
 void MainWindow::NotifyTabClick(ClickableTab *tab)
 {
     std::string tabName;
@@ -277,6 +285,10 @@ void MainWindow::NotifyTabClick(ClickableTab *tab)
     activeTab->SwapActiveState();
 }
 
+/**
+ * @brief MainWindow::AddAlertSummary - Add an alert to the table of alerts.
+ * @param Alert - The alert to add.
+ */
 void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
 {
     std::time_t currentTime;
@@ -307,13 +319,18 @@ void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
     }
 
     this->ui->AlertsTable->setRowCount(this->AlertsTableSize + 1);
-    this->ui->AlertsTable->setItem(this->AlertsTableSize, 0, new QTableWidgetItem(QString::fromStdString(date)));
-    this->ui->AlertsTable->setItem(this->AlertsTableSize, 1, new QTableWidgetItem(QString::fromStdString(alertName)));
+    this->ui->ProcessesTable->insertRow(0);
+    this->ui->AlertsTable->setItem(0, 0, new QTableWidgetItem(QString::fromStdString(date)));
+    this->ui->AlertsTable->setItem(0, 1, new QTableWidgetItem(QString::fromStdString(alertName)));
     this->AlertsTableSize++;
 
     alerts.push_back(Alert);
 }
 
+/**
+ * @brief MainWindow::AddProcessSummary - Add a process to the processes table.
+ * @param ProcessSummary - The process to add.
+ */
 void MainWindow::AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary)
 {
     std::time_t processExecutionDate;
@@ -344,6 +361,10 @@ void MainWindow::AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary)
     processes.push_back(ProcessSummary);
 }
 
+/**
+ * @brief MainWindow::AddFilterSummary - Add a filter to the filters table.
+ * @param FilterInfo - The filter to add.
+ */
 void MainWindow::AddFilterSummary(FILTER_INFO FilterInfo)
 {
     std::string filterType;
@@ -403,6 +424,9 @@ void MainWindow::AddFilterSummary(FILTER_INFO FilterInfo)
     filters.push_back(FilterInfo);
 }
 
+/**
+ * @brief MainWindow::on_InvestigateProcessButton_clicked - Open the process investigation window for the selected process.
+ */
 void MainWindow::on_InvestigateProcessButton_clicked()
 {
     PPROCESS_DETAILED_REQUEST processDetailed;
@@ -435,6 +459,9 @@ void MainWindow::on_InvestigateProcessButton_clicked()
     this->investigatorWindow->RefreshWidgets();
 }
 
+/**
+ * @brief MainWindow::on_ProcessSearch_editingFinished - Search for the specified process.
+ */
 void MainWindow::on_ProcessSearch_editingFinished()
 {
     QList<QTableWidgetItem*> searchResults;
@@ -474,6 +501,9 @@ void MainWindow::on_ProcessSearch_editingFinished()
     }
 }
 
+/**
+ * @brief MainWindow::on_OpenAlertButton_clicked - Open the selected alert.
+ */
 void MainWindow::on_OpenAlertButton_clicked()
 {
     int selectedRow;
@@ -494,6 +524,9 @@ void MainWindow::on_OpenAlertButton_clicked()
     alertWindow->show();
 }
 
+/**
+ * @brief MainWindow::on_DeleteAlertButton_clicked - Delete the selected alert.
+ */
 void MainWindow::on_DeleteAlertButton_clicked()
 {
     int selectedRow;
@@ -505,4 +538,41 @@ void MainWindow::on_DeleteAlertButton_clicked()
 
     selectedRow = this->ui->AlertsTable->selectedItems()[0]->row();
     this->ui->AlertsTable->removeRow(selectedRow);
+}
+
+/**
+ * @brief MainWindow::on_AddFilterButton_clicked - Add a filter.
+ */
+void MainWindow::on_AddFilterButton_clicked()
+{
+    this->addFilterWindow->ClearStates();
+    this->addFilterWindow->show();
+}
+
+/**
+ * @brief MainWindow::on_DeleteFilterButton_clicked - Make a request to delete the selected filter.
+ */
+void MainWindow::on_DeleteFilterButton_clicked()
+{
+    int selectedRow;
+
+    if(this->ui->FiltersTable->selectedItems().size() == 0)
+    {
+        return;
+    }
+
+    //
+    // Since rows start from 0, we need to subtract
+    // the row count from the table size to get the
+    // right index.
+    //
+    selectedRow = filters.size() - 1 - this->ui->FiltersTable->selectedItems()[0]->row();
+
+    //
+    // If we successfully deleted the filter, remove the row.
+    //
+    if(communicator.DeleteFilter(filters[selectedRow]))
+    {
+        this->ui->FiltersTable->removeRow(this->ui->FiltersTable->selectedItems()[0]->row());
+    }
 }

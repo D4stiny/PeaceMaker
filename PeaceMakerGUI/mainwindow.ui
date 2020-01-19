@@ -198,6 +198,9 @@
       <height>31</height>
      </rect>
     </property>
+    <property name="visible">
+     <bool>false</bool>
+    </property>
     <property name="styleSheet">
      <string notr="true">background-color: white;</string>
     </property>
@@ -214,11 +217,46 @@
       <height>31</height>
      </rect>
     </property>
+    <property name="visible">
+     <bool>false</bool>
+    </property>
     <property name="styleSheet">
      <string notr="true">background-color: white;</string>
     </property>
     <property name="text">
      <string>Delete Alert</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="AddFilterButton">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>570</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: white;</string>
+    </property>
+    <property name="text">
+     <string>Add Filter</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="DeleteFilterButton">
+    <property name="geometry">
+     <rect>
+      <x>170</x>
+      <y>570</y>
+      <width>151</width>
+      <height>31</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: white;</string>
+    </property>
+    <property name="text">
+     <string>Delete Filter</string>
     </property>
    </widget>
    <zorder>FiltersTable</zorder>
@@ -235,6 +273,8 @@
    <zorder>ProcessSearchLabel</zorder>
    <zorder>OpenAlertButton</zorder>
    <zorder>DeleteAlertButton</zorder>
+   <zorder>AddFilterButton</zorder>
+   <zorder>DeleteFilterButton</zorder>
   </widget>
  </widget>
  <customwidgets>

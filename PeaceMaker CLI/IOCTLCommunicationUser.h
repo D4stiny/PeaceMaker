@@ -61,4 +61,7 @@ public:
 	GLOBAL_SIZES GetGlobalSizes(
 		VOID
 		);
+	BOOLEAN DeleteFilter(
+		_In_ FILTER_INFO Filter
+		);
 };
