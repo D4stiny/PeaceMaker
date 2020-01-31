@@ -38,3 +38,18 @@ NTSTATUS NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS Proces
 
 	return fNtQueryInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
 }
+
+NTSTATUS NtQueryInformationThread(_In_ HANDLE ThreadHandle, _In_ THREADINFOCLASS ThreadInformationClass, _Out_ PVOID ThreadInformation, _In_ ULONG ThreadInformationLength, _Out_ PULONG ReturnLength)
+{
+	UNICODE_STRING funcName;
+	typedef NTSTATUS(NTAPI * NtQueryInformationThread_t)(_In_ HANDLE ThreadHandle, _In_ THREADINFOCLASS ThreadInformationClass, _Out_ PVOID ThreadInformation, _In_ ULONG ThreadInformationLength, _Out_ PULONG ReturnLength);
+	static NtQueryInformationThread_t fNtQueryInformationThread = NULL;
+
+	if (fNtQueryInformationThread == NULL)
+	{
+		RtlInitUnicodeString(&funcName, L"ZwQueryInformationThread");
+		fNtQueryInformationThread = RCAST<NtQueryInformationThread_t>(MmGetSystemRoutineAddress(&funcName));
+	}
+
+	return fNtQueryInformationThread(ThreadHandle, ThreadInformationClass, ThreadInformation, ThreadInformationLength, ReturnLength);
+}

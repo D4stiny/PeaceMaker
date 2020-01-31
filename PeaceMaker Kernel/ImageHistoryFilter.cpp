@@ -9,6 +9,7 @@ PDETECTION_LOGIC ImageHistoryFilter::detector;
 
 /**
 	Register the necessary notify routines.
+	@param Detector - Detection instance used to analyze untrusted operations.
 	@param InitializeStatus - Status of initialization.
 */
 ImageHistoryFilter::ImageHistoryFilter (

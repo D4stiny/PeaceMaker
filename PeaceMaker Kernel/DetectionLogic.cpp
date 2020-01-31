@@ -187,7 +187,10 @@ DetectionLogic::AuditUserPointer (
 	//
 	// If the user pointer isn't mapped, something's wrong.
 	//
-	if (info.MemoryInModule == FALSE)
+	if (info.MemoryInModule == FALSE &&
+		info.ExecutableMemory &&
+		info.RawAddress != 0x0 &&
+		RCAST<ULONG64>(info.RawAddress) < MmUserProbeAddress)
 	{
 		this->PushStackViolationAlert(DetectionSource, UserPtr, SourceProcessId, SourcePath, TargetPath, StackHistory, StackHistorySize);
 	}

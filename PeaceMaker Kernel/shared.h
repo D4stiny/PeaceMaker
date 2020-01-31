@@ -152,7 +152,8 @@ typedef enum AlertType
 {
 	StackViolation,
 	FilterViolation,
-	ParentProcessIdSpoofing
+	ParentProcessIdSpoofing,
+	RemoteThreadCreation
 } ALERT_TYPE;
 
 typedef enum DetectionSource

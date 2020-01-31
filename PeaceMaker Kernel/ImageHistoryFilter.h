@@ -65,17 +65,12 @@ typedef class ImageHistoryFilter
 	static BOOLEAN destroying;							// This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
 	static PDETECTION_LOGIC detector;
 
-	static BOOLEAN GetProcessImageFileName (
-		_In_ HANDLE ProcessId,
-		_Inout_ PUNICODE_STRING* ImageFileName
-		);
-
-	static VOID AddProcessToHistory (
+	static VOID AddProcessToHistory(
 		_In_ HANDLE ProcessId,
 		_In_ HANDLE ParentId
 		);
 
-	static VOID TerminateProcessInHistory (
+	static VOID TerminateProcessInHistory(
 		_In_ HANDLE ProcessId
 		);
 
@@ -86,7 +81,12 @@ public:
 		);
 	~ImageHistoryFilter(VOID);
 
-	ULONG GetProcessHistorySummary (
+	static BOOLEAN GetProcessImageFileName(
+		_In_ HANDLE ProcessId,
+		_Inout_ PUNICODE_STRING* ImageFileName
+		);
+
+	ULONG GetProcessHistorySummary(
 		_In_ ULONG SkipCount,
 		_Inout_ PPROCESS_SUMMARY_ENTRY ProcessSummaries,
 		_In_ ULONG MaxProcessSummaries

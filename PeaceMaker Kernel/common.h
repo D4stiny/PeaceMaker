@@ -16,3 +16,4 @@ void __cdecl operator delete(void* p, unsigned __int64);
 
 PPEB NTAPI PsGetProcessPeb(IN PEPROCESS Process);
 NTSTATUS NTAPI NtQueryInformationProcess(_In_ HANDLE ProcessHandle, _In_ PROCESSINFOCLASS ProcessInformationClass, _Out_writes_bytes_(ProcessInformationLength) PVOID ProcessInformation, _In_ ULONG ProcessInformationLength, _Out_opt_ PULONG ReturnLength);
+NTSTATUS NTAPI NtQueryInformationThread(_In_ HANDLE ThreadHandle, _In_ THREADINFOCLASS ThreadInformationClass, _Out_ PVOID ThreadInformation, _In_ ULONG ThreadInformationLength, _Out_ PULONG ReturnLength);
