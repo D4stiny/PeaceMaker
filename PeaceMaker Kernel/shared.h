@@ -76,6 +76,8 @@ typedef struct ProcessDetailedRequest
 	HANDLE ParentProcessId;				// The process id of the alleged parent process.
 	WCHAR ParentProcessPath[MAX_PATH];	// OPTIONAL: The image file name of the alleged parent process.
 
+	WCHAR ProcessCommandLine[MAX_PATH]; // The process command line.
+
 	ULONG ImageSummarySize;				// The length of the ImageSummary array.
 	PIMAGE_SUMMARY ImageSummary;		// Variable-length array of image summaries.
 
@@ -205,6 +207,7 @@ typedef struct FilterViolationAlert
 typedef struct RemoteOperationAlert
 {
 	BASE_ALERT_INFO AlertInformation;	// Basic alert information.
+	HANDLE RemoteTargetId;				// Process ID of the target process.
 	ULONG StackHistorySize;				// The length of the StackHistory array.
 	STACK_RETURN_INFO StackHistory[1];	// Variable-length array of stack history.
 } REMOTE_OPERATION_ALERT, *PREMOTE_OPERATION_ALERT;

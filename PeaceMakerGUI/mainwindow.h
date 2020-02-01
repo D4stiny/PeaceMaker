@@ -6,6 +6,7 @@
 #include <QScrollBar>
 #include <QString>
 #include <QMessageBox>
+#include <QDir>
 
 #include <ctime>
 #include <string>

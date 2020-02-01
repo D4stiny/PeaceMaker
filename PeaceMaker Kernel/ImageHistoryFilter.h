@@ -5,6 +5,7 @@
 #include "DetectionLogic.h"
 
 #define IMAGE_NAME_TAG 'nImP'
+#define IMAGE_COMMMAND_TAG 'cImP'
 #define PROCESS_HISTORY_TAG 'hPmP'
 #define STACK_HISTORY_TAG 'hSmP'
 #define IMAGE_HISTORY_TAG 'hImP'
@@ -32,6 +33,8 @@ typedef struct ProcessHistoryEntry
 
 	HANDLE ProcessId;							// The process id of the executed process.
 	PUNICODE_STRING ProcessImageFileName;		// The image file name of the executed process.
+
+	PUNICODE_STRING ProcessCommandLine;			// The command-line string for the executed process.
 	
 	ULONGLONG EpochExecutionTime;				// Process execution time in seconds since 1970.
 	BOOLEAN ProcessTerminated;					// Whether or not the process has terminated.
@@ -48,9 +51,9 @@ typedef class ImageHistoryFilter
 {
 
 	static VOID CreateProcessNotifyRoutine (
-		_In_ HANDLE ParentId,
+		_In_ PEPROCESS Process,
 		_In_ HANDLE ProcessId,
-		_In_ BOOLEAN Create
+		_In_ PPS_CREATE_NOTIFY_INFO CreateInfo
 		);
 
 	static VOID LoadImageNotifyRoutine (
@@ -67,7 +70,7 @@ typedef class ImageHistoryFilter
 
 	static VOID AddProcessToHistory(
 		_In_ HANDLE ProcessId,
-		_In_ HANDLE ParentId
+		_In_ PPS_CREATE_NOTIFY_INFO CreateInfo
 		);
 
 	static VOID TerminateProcessInHistory(

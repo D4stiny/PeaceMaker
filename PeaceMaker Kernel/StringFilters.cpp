@@ -183,10 +183,11 @@ StringFilters::RemoveFilter(
 		//
 		// Remove the entry from the list.
 		//
-		if (currentFilter)
+		if (currentFilter && currentFilter != this->filtersHead)
 		{
 			RemoveEntryList(RCAST<PLIST_ENTRY>(currentFilter));
 			filterDeleted = TRUE;
+			this->filtersCount--;
 		}
 	}
 

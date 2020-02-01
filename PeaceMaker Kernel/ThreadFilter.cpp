@@ -1,16 +1,19 @@
 #include "ThreadFilter.h"
 
+PDETECTION_LOGIC ThreadFilter::Detector;	// Detection utility.
+STACK_WALKER ThreadFilter::Walker;			// Stack walking utility.
+
 /**
 	Initialize thread notify filters to detect manually mapped threads.
-	@param Detector - Detection instance used to analyze untrusted operations.
+	@param DetectionLogic - Detection instance used to analyze untrusted operations.
 	@param InitializeStatus - Status of initialization.
 */
 ThreadFilter::ThreadFilter (
-	_In_ PDETECTION_LOGIC Detector,
+	_In_ PDETECTION_LOGIC DetectionLogic,
 	_Inout_ NTSTATUS* InitializeStatus
 	)
 {
-	ThreadFilter::Detector = Detector;
+	ThreadFilter::Detector = DetectionLogic;
 
 	//
 	// Create a thread notify routine.
@@ -20,6 +23,16 @@ ThreadFilter::ThreadFilter (
 	{
 		DBGPRINT("ThreadFilter!ThreadFilter: Failed to create thread notify routine with status 0x%X.", *InitializeStatus);
 	}
+}
+
+/**
+	Teardown dynamic components of the thread filter.
+*/
+ThreadFilter::~ThreadFilter (
+	VOID
+	)
+{
+	PsRemoveCreateThreadNotifyRoutine(ThreadFilter::ThreadNotifyRoutine);
 }
 
 /**
@@ -103,9 +116,9 @@ ThreadFilter::ThreadNotifyRoutine (
 	threadTargetName = NULL;
 
 	//
-	// We don't really care about thread termination.
+	// We don't really care about thread termination or if the thread is kernel-mode.
 	//
-	if (Create == FALSE)
+	if (Create == FALSE || ExGetPreviousMode() == KernelMode)
 	{
 		return;
 	}

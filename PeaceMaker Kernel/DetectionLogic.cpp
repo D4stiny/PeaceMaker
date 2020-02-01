@@ -259,6 +259,7 @@ DetectionLogic::AuditCallerProcessId(
 	}
 	remoteOperationAlert->AlertInformation.AlertSource = DetectionSource;
 	remoteOperationAlert->AlertInformation.SourceId = CallerProcessId;
+	remoteOperationAlert->RemoteTargetId = TargetProcessId;
 
 	if (SourcePath)
 	{

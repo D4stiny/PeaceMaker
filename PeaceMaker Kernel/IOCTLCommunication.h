@@ -2,6 +2,7 @@
 #include "common.h"
 #include "DetectionLogic.h"
 #include "ImageHistoryFilter.h"
+#include "ThreadFilter.h"
 #include "FSFilter.h"
 #include "RegistryFilter.h"
 
@@ -13,6 +14,7 @@ typedef class IOCTLCommunication
 	static PFLT_FILTER FileFilterHandle;
 	static PFS_BLOCKING_FILTER FilesystemMonitor;
 	static PREGISTRY_BLOCKING_FILTER RegistryMonitor;
+	static PTHREAD_FILTER ThreadOperationFilter;
 
 	NTSTATUS InitializeDriverIOCTL(VOID);
 	VOID UninitializeDriverIOCTL(VOID);
@@ -39,3 +41,4 @@ public:
 #define IMAGE_HISTORY_FILTER_TAG 'fImP'
 #define FILE_MONITOR_TAG 'mFmP'
 #define REGISTRY_MONITOR_TAG 'mRmP'
+#define THREAD_FILTER_TAG 'fTmP'

@@ -2,7 +2,15 @@
 #include "shared.h"
 
 void* __cdecl operator new(size_t size, POOL_TYPE pool, ULONG tag) {
-	return ExAllocatePoolWithTag(pool, size, tag);
+	PVOID newAddress = ExAllocatePoolWithTag(pool, size, tag);
+	//
+	// Remove remenants from previous use.
+	//
+	if (newAddress)
+	{
+		memset(newAddress, 0, size);
+	}
+	return newAddress;
 }
 
 void __cdecl operator delete(void* p, unsigned __int64) {

@@ -35,6 +35,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ThreadFilter.cpp" />
     <ResourceCompile Include="PeaceMaker Kernel.rc" />
     <ClCompile Include="AlertQueue.cpp" />
     <ClCompile Include="common.cpp" />
@@ -166,10 +167,12 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
       <AdditionalDependencies>fltmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/INTEGRITYCHECK %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>"$(OutDir)signbinary.bat" "$(TargetPath)"</Command>
     </PostBuildEvent>
+    <ClCompile />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -206,6 +209,7 @@
     <ClInclude Include="shared.h" />
     <ClInclude Include="StackWalker.h" />
     <ClInclude Include="StringFilters.h" />
+    <ClInclude Include="ThreadFilter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

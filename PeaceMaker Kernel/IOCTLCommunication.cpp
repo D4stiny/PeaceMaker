@@ -6,6 +6,7 @@ PIMAGE_HISTORY_FILTER IOCTLCommunication::ImageProcessFilter;
 PFLT_FILTER IOCTLCommunication::FileFilterHandle;
 PFS_BLOCKING_FILTER IOCTLCommunication::FilesystemMonitor;
 PREGISTRY_BLOCKING_FILTER IOCTLCommunication::RegistryMonitor;
+PTHREAD_FILTER IOCTLCommunication::ThreadOperationFilter;
 
 /**
 	Construct the IOCTLCommunication class by initializing the driver object and detector.
@@ -59,6 +60,19 @@ IOCTLCommunication::IOCTLCommunication (
 		return;
 	}
 
+	this->ThreadOperationFilter = new (NonPagedPool, THREAD_FILTER_TAG) ThreadFilter(this->Detector, InitializeStatus);
+	if (NT_SUCCESS(*InitializeStatus) == FALSE)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize thread operation filters with status 0x%X.", *InitializeStatus);
+		return;
+	}
+	if (this->ThreadOperationFilter == NULL)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to allocate space for thread operation filters.");
+		*InitializeStatus = STATUS_NO_MEMORY;
+		return;
+	}
+
 	InitializeDriverIOCTL();
 }
 
@@ -82,6 +96,9 @@ IOCTLCommunication::~IOCTLCommunication	(
 
 	this->RegistryMonitor->~RegistryBlockingFilter();
 	ExFreePoolWithTag(this->RegistryMonitor, REGISTRY_MONITOR_TAG);
+
+	this->ThreadOperationFilter->~ThreadFilter();
+	ExFreePoolWithTag(this->ThreadOperationFilter, THREAD_FILTER_TAG);
 
 	UninitializeDriverIOCTL();
 }

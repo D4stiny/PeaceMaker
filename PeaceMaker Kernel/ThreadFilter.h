@@ -20,10 +20,10 @@ typedef class ThreadFilter
 		);
 public:
 	ThreadFilter(
-		_In_ PDETECTION_LOGIC Detector,
+		_In_ PDETECTION_LOGIC DetectionLogic,
 		_Inout_ NTSTATUS* InitializeStatus
 		);
-	~ThreadFilter();
+	~ThreadFilter(VOID);
 
 
 } THREAD_FILTER, *PTHREAD_FILTER;

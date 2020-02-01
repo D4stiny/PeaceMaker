@@ -201,6 +201,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
         }
 
         totalFilterSize = globalSizes.FilesystemFilterSize + globalSizes.RegistryFilterSize;
+        printf("FS Size: %i, RY Size: %i, This Size: %i\n", globalSizes.FilesystemFilterSize, globalSizes.RegistryFilterSize, This->FiltersTableSize);
         //
         // Look for new filters.
         //
@@ -255,6 +256,12 @@ MainWindow::MainWindow(QWidget *parent)
     this->addFilterWindow->communicator = &this->communicator;
 
     CreateThread(NULL, 0, RCAST<LPTHREAD_START_ROUTINE>(this->ThreadUpdateTables), this, 0, NULL);
+
+    QDir().mkdir("C:\\Symbols");
+    LoadLibrary(L"symsrv.dll");
+    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
+    SymInitialize(GetCurrentProcess(), NULL, TRUE);
+    SymSetSearchPath(GetCurrentProcess(), "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
 }
 
 MainWindow::~MainWindow()
@@ -316,10 +323,13 @@ void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
     case ParentProcessIdSpoofing:
         alertName = "Parent Process ID Spoofing";
         break;
+    case RemoteThreadCreation:
+        alertName = "Remote Thread Creation";
+        break;
     }
 
     this->ui->AlertsTable->setRowCount(this->AlertsTableSize + 1);
-    this->ui->ProcessesTable->insertRow(0);
+    this->ui->AlertsTable->insertRow(0);
     this->ui->AlertsTable->setItem(0, 0, new QTableWidgetItem(QString::fromStdString(date)));
     this->ui->AlertsTable->setItem(0, 1, new QTableWidgetItem(QString::fromStdString(alertName)));
     this->AlertsTableSize++;
@@ -574,5 +584,21 @@ void MainWindow::on_DeleteFilterButton_clicked()
     if(communicator.DeleteFilter(filters[selectedRow]))
     {
         this->ui->FiltersTable->removeRow(this->ui->FiltersTable->selectedItems()[0]->row());
+
+        //
+        // Delete the filter from our records.
+        //
+        switch(filters[selectedRow].Type)
+        {
+        case FilesystemFilter:
+            this->FilesystemFiltersCount--;
+            break;
+        case RegistryFilter:
+            this->RegistryFiltersCount--;
+            break;
+        }
+
+        filters.erase(filters.begin() + selectedRow);
+        this->FiltersTableSize--;
     }
 }

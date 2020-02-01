@@ -20,7 +20,7 @@ ImageHistoryFilter::ImageHistoryFilter (
 	//
 	// Set the create process notify routine.
 	//
-	*InitializeStatus = PsSetCreateProcessNotifyRoutine(ImageHistoryFilter::CreateProcessNotifyRoutine, FALSE);
+	*InitializeStatus = PsSetCreateProcessNotifyRoutineEx(ImageHistoryFilter::CreateProcessNotifyRoutine, FALSE);
 	if (NT_SUCCESS(*InitializeStatus) == FALSE)
 	{
 		DBGPRINT("ImageHistoryFilter!ImageHistoryFilter: Failed to register create process notify routine with status 0x%X.", *InitializeStatus);
@@ -74,7 +74,7 @@ ImageHistoryFilter::~ImageHistoryFilter (
 	//
 	// Remove the notify routines.
 	//
-	PsSetCreateProcessNotifyRoutine(ImageHistoryFilter::CreateProcessNotifyRoutine, TRUE);
+	PsSetCreateProcessNotifyRoutineEx(ImageHistoryFilter::CreateProcessNotifyRoutine, TRUE);
 	PsRemoveLoadImageNotifyRoutine(ImageHistoryFilter::LoadImageNotifyRoutine);
 
 	//
@@ -152,6 +152,10 @@ ImageHistoryFilter::~ImageHistoryFilter (
 			{
 				ExFreePoolWithTag(currentProcessHistory->ParentImageFileName, IMAGE_NAME_TAG);
 			}
+			if (currentProcessHistory->ProcessCommandLine)
+			{
+				ExFreePoolWithTag(currentProcessHistory->ProcessCommandLine, IMAGE_COMMMAND_TAG);
+			}
 
 			//
 			// Free the stack history.
@@ -174,12 +178,12 @@ ImageHistoryFilter::~ImageHistoryFilter (
 /**
 	Add a process to the linked-list of process history objects. This function attempts to add a history object regardless of failures.
 	@param ProcessId - The process ID of the process to add.
-	@param ParentId - The parent process ID of the process to add.
+	@param CreateInfo - Information about the process being created.
 */
 VOID
 ImageHistoryFilter::AddProcessToHistory (
 	_In_ HANDLE ProcessId,
-	_In_ HANDLE ParentId
+	_In_ PPS_CREATE_NOTIFY_INFO CreateInfo
 	)
 {
 	NTSTATUS status;
@@ -210,7 +214,7 @@ ImageHistoryFilter::AddProcessToHistory (
 	// Basic fields.
 	//
 	newProcessHistory->ProcessId = ProcessId;
-	newProcessHistory->ParentId = ParentId;
+	newProcessHistory->ParentId = CreateInfo->ParentProcessId;
 	newProcessHistory->CallerId = PsGetCurrentProcessId();
 	newProcessHistory->ProcessTerminated = FALSE;
 	newProcessHistory->ImageLoadHistorySize = 0;
@@ -221,22 +225,51 @@ ImageHistoryFilter::AddProcessToHistory (
 	// Image file name fields.
 	//
 
+	
 	//
-	// The new process name is a requirement.
+	// Allocate the necessary space.
 	//
-	if (ImageHistoryFilter::GetProcessImageFileName(ProcessId, &newProcessHistory->ProcessImageFileName) == FALSE)
+	newProcessHistory->ProcessImageFileName = RCAST<PUNICODE_STRING>(ExAllocatePoolWithTag(PagedPool, sizeof(UNICODE_STRING) + CreateInfo->ImageFileName->Length, IMAGE_NAME_TAG));
+	if (newProcessHistory->ProcessImageFileName == NULL)
 	{
-		DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to get the name of the new process.");
-		status = STATUS_NOT_FOUND;
+		DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to allocate space for process ImageFileName.");
 		goto Exit;
 	}
+
+	newProcessHistory->ProcessImageFileName->Buffer = RCAST<PWCH>(RCAST<ULONG_PTR>(newProcessHistory->ProcessImageFileName) + sizeof(UNICODE_STRING));
+	newProcessHistory->ProcessImageFileName->Length = CreateInfo->ImageFileName->Length;
+	newProcessHistory->ProcessImageFileName->MaximumLength = CreateInfo->ImageFileName->Length;
+
+	//
+	// Copy the image file name string.
+	//
+	RtlCopyUnicodeString(newProcessHistory->ProcessImageFileName, CreateInfo->ImageFileName);
+
+	//
+	// Allocate the necessary space.
+	//
+	newProcessHistory->ProcessCommandLine = RCAST<PUNICODE_STRING>(ExAllocatePoolWithTag(PagedPool, sizeof(UNICODE_STRING) + CreateInfo->CommandLine->Length, IMAGE_COMMMAND_TAG));
+	if (newProcessHistory->ProcessCommandLine == NULL)
+	{
+		DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to allocate space for process command line.");
+		goto Exit;
+	}
+
+	newProcessHistory->ProcessCommandLine->Buffer = RCAST<PWCH>(RCAST<ULONG_PTR>(newProcessHistory->ProcessCommandLine) + sizeof(UNICODE_STRING));
+	newProcessHistory->ProcessCommandLine->Length = CreateInfo->CommandLine->Length;
+	newProcessHistory->ProcessCommandLine->MaximumLength = CreateInfo->CommandLine->Length;
+
+	//
+	// Copy the command line string.
+	//
+	RtlCopyUnicodeString(newProcessHistory->ProcessCommandLine, CreateInfo->CommandLine);
 
 	//
 	// These fields are optional.
 	//
-	ImageHistoryFilter::GetProcessImageFileName(ParentId, &newProcessHistory->ParentImageFileName);
+	ImageHistoryFilter::GetProcessImageFileName(CreateInfo->ParentProcessId, &newProcessHistory->ParentImageFileName);
 
-	if (PsGetCurrentProcessId() != ParentId)
+	if (PsGetCurrentProcessId() != CreateInfo->ParentProcessId)
 	{
 		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &newProcessHistory->CallerImageFileName);
 	}
@@ -355,23 +388,24 @@ ImageHistoryFilter::TerminateProcessInHistory (
 
 /**
 	Notify routine called on new process execution.
-	@param ParentId - The parent's process ID.
+	@param Process - The EPROCESS structure of the new/terminating process.
 	@param ProcessId - The new child's process ID.
-	@param Create - Whether or not this process is being created or terminated.
+	@param CreateInfo - Information about the process being created.
 */
 VOID
 ImageHistoryFilter::CreateProcessNotifyRoutine (
-	_In_ HANDLE ParentId,
+	_In_ PEPROCESS Process,
 	_In_ HANDLE ProcessId,
-	_In_ BOOLEAN Create
+	_In_ PPS_CREATE_NOTIFY_INFO CreateInfo
 	)
 {
+	UNREFERENCED_PARAMETER(Process);
 	//
 	// If a new process is being created, add it to the history of processes.
 	//
-	if (Create)
+	if (CreateInfo)
 	{
-		ImageHistoryFilter::AddProcessToHistory(ProcessId, ParentId);
+		ImageHistoryFilter::AddProcessToHistory(ProcessId, CreateInfo);
 		DBGPRINT("ImageHistoryFilter!CreateProcessNotifyRoutine: Registered process 0x%X.", ProcessId);
 	}
 	else
@@ -778,6 +812,15 @@ ImageHistoryFilter::PopulateProcessDetailedRequest (
 					if (NT_SUCCESS(status) == FALSE)
 					{
 						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the image file name of the parent with status 0x%X.", status);
+						break;
+					}
+				}
+				if (currentProcessHistory->ProcessCommandLine)
+				{
+					status = RtlStringCbCopyUnicodeString(RCAST<NTSTRSAFE_PWSTR>(ProcessDetailedRequest->ProcessCommandLine), MAX_PATH * sizeof(WCHAR), currentProcessHistory->ProcessCommandLine);
+					if (NT_SUCCESS(status) == FALSE)
+					{
+						DBGPRINT("ImageHistoryFilter!PopulateProcessDetailedRequest: Failed to copy the command line of the process with status 0x%X.", status);
 						break;
 					}
 				}

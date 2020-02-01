@@ -29,10 +29,7 @@ DetailedAlertWindow::DetailedAlertWindow(QWidget *parent) :
     ui(new Ui::DetailedAlertWindow)
 {
     ui->setupUi(this);
-    this->setFixedSize(QSize(400, 550));
-
-    SymSetOptions(SYMOPT_UNDNAME);
-    SymInitialize(GetCurrentProcess(), nullptr, TRUE);
+    this->setFixedSize(QSize(770, 550));
 }
 
 DetailedAlertWindow::~DetailedAlertWindow()
@@ -50,6 +47,7 @@ void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
     QString alertSource;
     PSTACK_VIOLATION_ALERT stackViolationAlert;
     PFILTER_VIOLATION_ALERT filterViolationAlert;
+    PREMOTE_OPERATION_ALERT remoteOperationAlert;
     ULONG i;
     QString violatingAddress;
 
@@ -145,6 +143,32 @@ void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
         stackHistory = filterViolationAlert->StackHistory;
         stackHistorySize = filterViolationAlert->StackHistorySize;
         alertName = "Filter Violation Alert";
+        break;
+    case ParentProcessIdSpoofing:
+        remoteOperationAlert = RCAST<PREMOTE_OPERATION_ALERT>(AlertInfo);
+        this->ui->AlertDetailsTable->setRowCount(6);
+        this->ui->AlertDetailsTable->setItem(5, 0, new QTableWidgetItem("Target Id"));
+        this->ui->AlertDetailsTable->setItem(5, 1, new QTableWidgetItem(QString::number(RCAST<ULONG64>(remoteOperationAlert->RemoteTargetId))));
+
+        //
+        // Set the stack history info for this alert.
+        //
+        stackHistory = remoteOperationAlert->StackHistory;
+        stackHistorySize = remoteOperationAlert->StackHistorySize;
+        alertName = "Parent Process ID Spoofing";
+        break;
+    case RemoteThreadCreation:
+        remoteOperationAlert = RCAST<PREMOTE_OPERATION_ALERT>(AlertInfo);
+        this->ui->AlertDetailsTable->setRowCount(6);
+        this->ui->AlertDetailsTable->setItem(5, 0, new QTableWidgetItem("Target Id"));
+        this->ui->AlertDetailsTable->setItem(5, 1, new QTableWidgetItem(QString::number(RCAST<ULONG64>(remoteOperationAlert->RemoteTargetId))));
+
+        //
+        // Set the stack history info for this alert.
+        //
+        stackHistory = remoteOperationAlert->StackHistory;
+        stackHistorySize = remoteOperationAlert->StackHistorySize;
+        alertName = "Remote Thread Creation";
         break;
     }
 
