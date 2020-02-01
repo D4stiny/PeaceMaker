@@ -123,7 +123,6 @@ ThreadFilter::ThreadNotifyRoutine (
 		goto Exit;
 	}
 
-
 	threadTargetName = threadCallerName;
 
 	//
@@ -140,14 +139,25 @@ ThreadFilter::ThreadNotifyRoutine (
 		}
 	}
 	
-
-	ThreadFilter::Detector->AuditUserStackWalk(ThreadCreate, PsGetCurrentProcessId(), threadCallerName, threadTargetName, threadCreateStack, threadCreateStackSize);
-
 	//
 	// Grab the start address of the thread.
 	//
 	threadStartAddress = ThreadFilter::GetThreadStartAddress(ThreadId);
+
+	//
+	// Audit the target's start address.
+	//
 	ThreadFilter::Detector->AuditUserPointer(ThreadCreate, threadStartAddress, PsGetCurrentProcessId(), threadCallerName, threadTargetName, threadCreateStack, threadCreateStackSize);
+
+	//
+	// Audit the caller's stack.
+	//
+	ThreadFilter::Detector->AuditUserStackWalk(ThreadCreate, PsGetCurrentProcessId(), threadCallerName, threadTargetName, threadCreateStack, threadCreateStackSize);
+
+	//
+	// Check if this is a remote operation.
+	//
+	ThreadFilter::Detector->AuditCallerProcessId(ThreadCreate, PsGetCurrentProcessId(), ProcessId, threadCallerName, threadTargetName, threadCreateStack, threadCreateStackSize);
 Exit:
 	if (threadCreateStack != NULL)
 	{

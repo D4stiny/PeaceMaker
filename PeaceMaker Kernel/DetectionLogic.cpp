@@ -195,3 +195,90 @@ DetectionLogic::AuditUserPointer (
 		this->PushStackViolationAlert(DetectionSource, UserPtr, SourceProcessId, SourcePath, TargetPath, StackHistory, StackHistorySize);
 	}
 }
+
+/**
+	Check if an operation is on a remote process. This is called by suspicious operation callbacks such as Thread Creation.
+	@param DetectionSource - The filter we are checking the stack of.
+	@param UserPtr - The pointer to check.
+	@param SourceProcessId - The source of the audit.
+	@param SourceProcessId - The target of the operation.
+	@param SourcePath - The source path.
+	@param TargetPath - The target path.
+	@param StackHistory - A variable-length array of stack return history.
+	@param StackHistorySize - Size of the StackHistory array.
+*/
+VOID
+DetectionLogic::AuditCallerProcessId(
+	_In_ DETECTION_SOURCE DetectionSource,
+	_In_ HANDLE CallerProcessId,
+	_In_ HANDLE TargetProcessId,
+	_In_ PUNICODE_STRING SourcePath,
+	_In_ PUNICODE_STRING TargetPath,
+	_In_ STACK_RETURN_INFO StackHistory[],
+	_In_ ULONG StackHistorySize
+	)
+{
+	ULONG stackHistoryBytes;
+	PREMOTE_OPERATION_ALERT remoteOperationAlert;
+
+	//
+	// If the operation is on the current process, no problems!
+	//
+	if (CallerProcessId == TargetProcessId)
+	{
+		return;
+	}
+
+	//
+	// Calculate the size of the StackHistory array in bytes.
+	//
+	stackHistoryBytes = sizeof(STACK_RETURN_INFO) * (StackHistorySize - 1);
+
+	//
+	// Allocate space for the alert depending on the size of StackHistory.
+	//
+	remoteOperationAlert = RCAST<PREMOTE_OPERATION_ALERT>(ExAllocatePoolWithTag(PagedPool, sizeof(REMOTE_OPERATION_ALERT) + stackHistoryBytes, STACK_VIOLATION_TAG));
+	if (remoteOperationAlert == NULL)
+	{
+		DBGPRINT("DetectionLogic!PushStackViolationAlert: Failed to allocate space for the alert.");
+		return;
+	}
+	memset(remoteOperationAlert, 0, sizeof(REMOTE_OPERATION_ALERT) + stackHistoryBytes);
+
+	//
+	// Fill the fields of the alert.
+	//
+	switch (DetectionSource)
+	{
+	case ProcessCreate:
+		remoteOperationAlert->AlertInformation.AlertType = ParentProcessIdSpoofing;
+		break;
+	case ThreadCreate:
+		remoteOperationAlert->AlertInformation.AlertType = RemoteThreadCreation;
+		break;
+	}
+	remoteOperationAlert->AlertInformation.AlertSource = DetectionSource;
+	remoteOperationAlert->AlertInformation.SourceId = CallerProcessId;
+
+	if (SourcePath)
+	{
+		RtlStringCbCopyUnicodeString(remoteOperationAlert->AlertInformation.SourcePath, MAX_PATH, SourcePath);
+	}
+	if (TargetPath)
+	{
+		RtlStringCbCopyUnicodeString(remoteOperationAlert->AlertInformation.TargetPath, MAX_PATH, TargetPath);
+	}
+
+	remoteOperationAlert->StackHistorySize = StackHistorySize;
+	memcpy(&remoteOperationAlert->StackHistory, StackHistory, sizeof(STACK_RETURN_INFO) * StackHistorySize);
+
+	//
+	// Push the alert.
+	//
+	this->alerts->PushAlert(RCAST<PBASE_ALERT_INFO>(remoteOperationAlert), sizeof(REMOTE_OPERATION_ALERT) + stackHistoryBytes);
+
+	//
+	// PushAlert copies the alert, so we can free our copy.
+	//
+	ExFreePoolWithTag(remoteOperationAlert, STACK_VIOLATION_TAG);
+}

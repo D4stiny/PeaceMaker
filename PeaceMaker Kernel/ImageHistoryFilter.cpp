@@ -288,6 +288,17 @@ ImageHistoryFilter::AddProcessToHistory (
 													 newProcessHistory->ProcessImageFileName,
 													 newProcessHistory->CallerStackHistory,
 													 newProcessHistory->CallerStackHistorySize);
+
+	//
+	// Check for parent process ID spoofing.
+	//
+	ImageHistoryFilter::detector->AuditCallerProcessId(ProcessCreate,
+													   PsGetCurrentProcessId(),
+													   ProcessId,
+													   newProcessHistory->ParentImageFileName,
+													   newProcessHistory->ProcessImageFileName,
+													   newProcessHistory->CallerStackHistory,
+													   newProcessHistory->CallerStackHistorySize);
 Exit:
 	if (newProcessHistory && NT_SUCCESS(status) == FALSE)
 	{

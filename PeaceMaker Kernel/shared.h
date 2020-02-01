@@ -202,6 +202,18 @@ typedef struct FilterViolationAlert
 //
 #define MAX_FILTER_VIOLATION_ALERT_SIZE sizeof(FILTER_VIOLATION_ALERT) + (MAX_STACK_RETURN_HISTORY-1) * sizeof(STACK_RETURN_INFO)
 
+typedef struct RemoteOperationAlert
+{
+	BASE_ALERT_INFO AlertInformation;	// Basic alert information.
+	ULONG StackHistorySize;				// The length of the StackHistory array.
+	STACK_RETURN_INFO StackHistory[1];	// Variable-length array of stack history.
+} REMOTE_OPERATION_ALERT, *PREMOTE_OPERATION_ALERT;
+
+//
+// How many bytes the user-mode caller must supply as its output buffer.
+//
+#define MAX_REMOTE_OPERATION_ALERT_SIZE sizeof(REMOTE_OPERATION_ALERT) + (MAX_STACK_RETURN_HISTORY-1) * sizeof(STACK_RETURN_INFO)
+
 typedef struct GlobalSizes
 {
 	ULONG64 ProcessHistorySize;
