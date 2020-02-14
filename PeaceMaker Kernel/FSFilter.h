@@ -2,6 +2,7 @@
 #include "common.h"
 #include "StringFilters.h"
 #include "StackWalker.h"
+#include "ImageHistoryFilter.h"
 
 typedef class FSBlockingFilter
 {
@@ -86,11 +87,12 @@ typedef class FSBlockingFilter
 	static PSTRING_FILTERS FileStringFilters;
 
 	static STACK_WALKER walker;
-
+	static PDETECTION_LOGIC detector;
 public:
 	FSBlockingFilter (
 		_In_ PDRIVER_OBJECT DriverObject,
 		_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
+		_In_ PDETECTION_LOGIC Detector,
 		_Out_ NTSTATUS* InitializeStatus,
 		_Out_ PFLT_FILTER* FilterHandle
 		);

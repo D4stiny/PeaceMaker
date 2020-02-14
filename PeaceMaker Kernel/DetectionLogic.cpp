@@ -283,3 +283,68 @@ DetectionLogic::AuditCallerProcessId(
 	//
 	ExFreePoolWithTag(remoteOperationAlert, STACK_VIOLATION_TAG);
 }
+
+/**
+	Report a filter violation.
+	@param DetectionSource - The filter type that was violated.
+	@param CallerProcessId - The process ID of the caller that violated the filter.
+	@param CallerPath - The path of the caller process.
+	@param ViolatingPath - The path that triggered the filter violation.
+	@param StackHistory - A variable-length array of stack return history.
+	@param StackHistorySize - Size of the StackHistory array.
+*/
+VOID
+DetectionLogic::ReportFilterViolation (
+	_In_ DETECTION_SOURCE DetectionSource,
+	_In_ HANDLE CallerProcessId,
+	_In_ PUNICODE_STRING CallerPath,
+	_In_ PUNICODE_STRING ViolatingPath,
+	_In_ STACK_RETURN_INFO StackHistory[],
+	_In_ ULONG StackHistorySize
+	)
+{
+	ULONG stackHistoryBytes;
+	PFILTER_VIOLATION_ALERT filterViolationAlert;
+
+	//
+	// Calculate the size of the StackHistory array in bytes.
+	//
+	stackHistoryBytes = sizeof(STACK_RETURN_INFO) * (StackHistorySize - 1);
+
+	//
+	// Allocate space for the alert depending on the size of StackHistory.
+	//
+	filterViolationAlert = RCAST<PFILTER_VIOLATION_ALERT>(ExAllocatePoolWithTag(PagedPool, sizeof(FILTER_VIOLATION_ALERT) + stackHistoryBytes, STACK_VIOLATION_TAG));
+	if (filterViolationAlert == NULL)
+	{
+		DBGPRINT("DetectionLogic!ReportFilterViolation: Failed to allocate space for the alert.");
+		return;
+	}
+	memset(filterViolationAlert, 0, sizeof(FILTER_VIOLATION_ALERT) + stackHistoryBytes);
+
+	filterViolationAlert->AlertInformation.AlertType = FilterViolation;
+	filterViolationAlert->AlertInformation.AlertSource = DetectionSource;
+	filterViolationAlert->AlertInformation.SourceId = CallerProcessId;
+
+	if (CallerPath)
+	{
+		RtlStringCbCopyUnicodeString(filterViolationAlert->AlertInformation.SourcePath, MAX_PATH, CallerPath);
+	}
+	if (ViolatingPath)
+	{
+		RtlStringCbCopyUnicodeString(filterViolationAlert->AlertInformation.TargetPath, MAX_PATH, ViolatingPath);
+	}
+
+	filterViolationAlert->StackHistorySize = StackHistorySize;
+	memcpy(&filterViolationAlert->StackHistory, StackHistory, sizeof(STACK_RETURN_INFO) * StackHistorySize);
+
+	//
+	// Push the alert.
+	//
+	this->alerts->PushAlert(RCAST<PBASE_ALERT_INFO>(filterViolationAlert), sizeof(FILTER_VIOLATION_ALERT) + stackHistoryBytes);
+
+	//
+	// PushAlert copies the alert, so we can free our copy.
+	//
+	ExFreePoolWithTag(filterViolationAlert, STACK_VIOLATION_TAG);
+}

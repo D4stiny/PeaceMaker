@@ -64,7 +64,7 @@ public:
 
     void AddAlertSummary(PBASE_ALERT_INFO Alert);
     void AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary);
-    void AddFilterSummary(FILTER_INFO FilterInfo);
+    void AddFilterSummary(FILTER_INFO FilterInfo, STRING_FILTER_TYPE FilterType);
 
     void ActivateAlertsWindow();
     void ActivateProcessesWindow();

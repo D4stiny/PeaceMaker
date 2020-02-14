@@ -1,14 +1,18 @@
 #include "RegistryFilter.h"
 
 LARGE_INTEGER RegistryBlockingFilter::RegistryFilterCookie;
+PDETECTION_LOGIC RegistryBlockingFilter::detector;
+STACK_WALKER RegistryBlockingFilter::walker;
 
 /**
 	Initializes the necessary components of the registry filter.
 	@param DriverObject - The object of the driver necessary for mini-filter initialization.
+	@param Detector - Detection instance used to analyze untrusted operations.
 	@param InitializeStatus - Status of initialization.
 */
 RegistryBlockingFilter::RegistryBlockingFilter(
 	_In_ PDRIVER_OBJECT DriverObject,
+	_In_ PDETECTION_LOGIC Detector,
 	_Out_ NTSTATUS* InitializeStatus
 	)
 {
@@ -31,6 +35,11 @@ RegistryBlockingFilter::RegistryBlockingFilter(
 	// Register our registry callback.
 	//
 	*InitializeStatus = CmRegisterCallbackEx(RCAST<PEX_CALLBACK_FUNCTION>(RegistryBlockingFilter::RegistryCallback), &filterAltitude, DriverObject, NULL, &RegistryFilterCookie, NULL);
+
+	//
+	// Set the detector.
+	//
+	RegistryBlockingFilter::detector = Detector;
 }
 
 /**
@@ -84,7 +93,13 @@ RegistryBlockingFilter::BlockRegistryOperation (
 	PWCHAR tempValueName;
 	PWCHAR fullKeyValueName;
 
+	UNICODE_STRING registryOperationPath;
+	PUNICODE_STRING callerProcessPath;
+	PSTACK_RETURN_INFO registryOperationStack;
+	ULONG registryOperationStackSize;
+
 	blockOperation = FALSE;
+	registryOperationStackSize = MAX_STACK_RETURN_HISTORY;
 	keyHandle = NULL;
 	returnLength = NULL;
 	pKeyNameInformation = NULL;
@@ -193,6 +208,36 @@ RegistryBlockingFilter::BlockRegistryOperation (
 	__except (EXCEPTION_EXECUTE_HANDLER)
 	{}
 
+	if (blockOperation)
+	{
+		//
+		// Grab the caller's path.
+		//
+		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &callerProcessPath);
+
+		//
+		// Walk the stack.
+		//
+		RegistryBlockingFilter::walker.WalkAndResolveStack(&registryOperationStack, &registryOperationStackSize, STACK_HISTORY_TAG);
+
+		NT_ASSERT(fileOperationStack);
+
+		//
+		// Convert the registry path to a unicode string.
+		//
+		RtlInitUnicodeString(&registryOperationPath, fullKeyValueName);
+
+		//
+		// Report the violation.
+		//
+		RegistryBlockingFilter::detector->ReportFilterViolation(RegistryFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &registryOperationPath, registryOperationStack, registryOperationStackSize);
+
+		//
+		// Clean up.
+		//
+		ExFreePoolWithTag(registryOperationStack, STACK_HISTORY_TAG);
+		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
+	}
 Exit:
 	if (tempValueName)
 	{

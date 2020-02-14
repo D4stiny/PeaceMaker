@@ -215,7 +215,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
                 filterRequest = This->communicator.RequestFilters(FilesystemFilter, This->FilesystemFiltersCount);
                 for(c = 0; c < filterRequest.CopiedFilters; c++)
                 {
-                    This->AddFilterSummary(filterRequest.Filters[c]);
+                    This->AddFilterSummary(filterRequest.Filters[c], FilesystemFilter);
                 }
             }
 
@@ -224,7 +224,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
                 filterRequest = This->communicator.RequestFilters(RegistryFilter, This->RegistryFiltersCount);
                 for(c = 0; c < filterRequest.CopiedFilters; c++)
                 {
-                    This->AddFilterSummary(filterRequest.Filters[c]);
+                    This->AddFilterSummary(filterRequest.Filters[c], RegistryFilter);
                 }
             }
         }
@@ -374,8 +374,9 @@ void MainWindow::AddProcessSummary(PROCESS_SUMMARY_ENTRY ProcessSummary)
 /**
  * @brief MainWindow::AddFilterSummary - Add a filter to the filters table.
  * @param FilterInfo - The filter to add.
+ * @param FilterType - The type of filter to add.
  */
-void MainWindow::AddFilterSummary(FILTER_INFO FilterInfo)
+void MainWindow::AddFilterSummary(FILTER_INFO FilterInfo, STRING_FILTER_TYPE FilterType)
 {
     std::string filterType;
     std::string filterFlags;
@@ -383,7 +384,7 @@ void MainWindow::AddFilterSummary(FILTER_INFO FilterInfo)
     //
     // Depending on the filter type, make the enum value a string.
     //
-    switch(FilterInfo.Type)
+    switch(FilterType)
     {
     case FilesystemFilter:
         filterType = "Filesystem Filter";

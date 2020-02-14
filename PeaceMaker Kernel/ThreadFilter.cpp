@@ -104,6 +104,7 @@ ThreadFilter::ThreadNotifyRoutine (
 	_In_ BOOLEAN Create
 	)
 {
+	ULONG processThreadCount;
 	PVOID threadStartAddress;
 	PSTACK_RETURN_INFO threadCreateStack;
 	ULONG threadCreateStackSize;
@@ -119,6 +120,15 @@ ThreadFilter::ThreadNotifyRoutine (
 	// We don't really care about thread termination or if the thread is kernel-mode.
 	//
 	if (Create == FALSE || ExGetPreviousMode() == KernelMode)
+	{
+		return;
+	}
+
+	//
+	// If we can't find the process or it's the first thread of the process, skip it.
+	//
+	if (ImageHistoryFilter::AddProcessThreadCount(ProcessId, &processThreadCount) == FALSE ||
+		processThreadCount <= 1)
 	{
 		return;
 	}

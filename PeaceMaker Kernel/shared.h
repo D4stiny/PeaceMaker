@@ -194,7 +194,6 @@ typedef struct StackViolationAlert
 typedef struct FilterViolationAlert
 {
 	BASE_ALERT_INFO AlertInformation;	// Basic alert information.
-	FILTER_INFO ViolatedFilter;			// The filter that was violated.
 	ULONG StackHistorySize;				// The length of the StackHistory array.
 	STACK_RETURN_INFO StackHistory[1];	// Variable-length array of stack history.
 } FILTER_VIOLATION_ALERT, * PFILTER_VIOLATION_ALERT;

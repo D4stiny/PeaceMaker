@@ -170,15 +170,15 @@ void InvestigateProcessWindow::UpdateNewProcess(PROCESS_DETAILED_REQUEST detaile
 
     this->ui->ProcessInformationTable->setItem(4, 1, new QTableWidgetItem(QString::number(RCAST<ULONG64>(detailedProcessInformation.CallerProcessId))));
 
-    newWidget = new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.CallerProcessPath));
-    newWidget->setToolTip(QString::fromWCharArray(detailedProcessInformation.CallerProcessPath));
-    this->ui->ProcessInformationTable->setItem(5, 1, new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.CallerProcessPath)));
+    //newWidget = new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.CallerProcessPath));
+    //newWidget->setToolTip(QString::fromWCharArray(detailedProcessInformation.CallerProcessPath));
+    //this->ui->ProcessInformationTable->setItem(5, 1, new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.CallerProcessPath)));
 
-    this->ui->ProcessInformationTable->setItem(6, 1, new QTableWidgetItem(QString::number(RCAST<ULONG64>(detailedProcessInformation.ParentProcessId))));
+    this->ui->ProcessInformationTable->setItem(5, 1, new QTableWidgetItem(QString::number(RCAST<ULONG64>(detailedProcessInformation.ParentProcessId))));
 
     newWidget = new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.ParentProcessPath));
     newWidget->setToolTip(QString::fromWCharArray(detailedProcessInformation.ParentProcessPath));
-    this->ui->ProcessInformationTable->setItem(7, 1, new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.ParentProcessPath)));
+    this->ui->ProcessInformationTable->setItem(6, 1, new QTableWidgetItem(QString::fromWCharArray(detailedProcessInformation.ParentProcessPath)));
 
     this->ui->ProcessInformationTable->resizeRowsToContents();
 

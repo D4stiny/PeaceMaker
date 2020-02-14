@@ -105,7 +105,7 @@ void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
         alertSource = "Registry Filter Match";
         break;
     case FileFilterMatch:
-        alertSource = "Filter Filter Match";
+        alertSource = "File Filter Match";
         break;
     case ThreadCreate:
         alertSource = "Thread Create";
@@ -133,9 +133,19 @@ void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
         break;
     case FilterViolation:
         filterViolationAlert = RCAST<PFILTER_VIOLATION_ALERT>(AlertInfo);
-        this->ui->AlertDetailsTable->setRowCount(7);
+        this->ui->AlertDetailsTable->setRowCount(6);
         this->ui->AlertDetailsTable->setItem(5, 0, new QTableWidgetItem("Filter Type"));
-        this->ui->AlertDetailsTable->setItem(6, 0, new QTableWidgetItem("Filter Content"));
+        switch(filterViolationAlert->AlertInformation.AlertSource)
+        {
+        case FileFilterMatch:
+            this->ui->AlertDetailsTable->setItem(5, 1, new QTableWidgetItem("Filesystem Filter"));
+            break;
+        case RegistryFilterMatch:
+            this->ui->AlertDetailsTable->setItem(5, 1, new QTableWidgetItem("Registry Filter"));
+            break;
+        }
+
+        //this->ui->AlertDetailsTable->setItem(6, 0, new QTableWidgetItem("Filter Content"));
 
         //
         // Set the stack history info for this alert.

@@ -35,6 +35,8 @@ typedef struct ProcessHistoryEntry
 	PUNICODE_STRING ProcessImageFileName;		// The image file name of the executed process.
 
 	PUNICODE_STRING ProcessCommandLine;			// The command-line string for the executed process.
+
+	ULONG ProcessThreadCount;					// The number of threads the process has.
 	
 	ULONGLONG EpochExecutionTime;				// Process execution time in seconds since 1970.
 	BOOLEAN ProcessTerminated;					// Whether or not the process has terminated.
@@ -107,5 +109,9 @@ public:
 		_Inout_ PIMAGE_DETAILED_REQUEST ImageDetailedRequest
 		);
 
+	static BOOLEAN AddProcessThreadCount(
+		_In_ HANDLE ProcessId,
+		_Inout_ ULONG* ThreadCount
+		);
 	static ULONG64 ProcessHistorySize;					// Number of entries in the ProcessHistory linked-list.
 } IMAGE_HISTORY_FILTER, *PIMAGE_HISTORY_FILTER;

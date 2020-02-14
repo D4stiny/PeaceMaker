@@ -46,14 +46,14 @@ IOCTLCommunication::IOCTLCommunication (
 		return;
 	}
 
-	FilesystemMonitor = new (NonPagedPool, FILE_MONITOR_TAG) FSBlockingFilter(DriverObject, UnloadRoutine, InitializeStatus, &FileFilterHandle);
+	FilesystemMonitor = new (NonPagedPool, FILE_MONITOR_TAG) FSBlockingFilter(DriverObject, UnloadRoutine, this->Detector, InitializeStatus, &FileFilterHandle);
 	if (NT_SUCCESS(*InitializeStatus) == FALSE)
 	{
 		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize the filesystem blocking filter with status 0x%X.", *InitializeStatus);
 		return;
 	}
 
-	RegistryMonitor = new (NonPagedPool, REGISTRY_MONITOR_TAG) RegistryBlockingFilter(DriverObject, InitializeStatus);
+	RegistryMonitor = new (NonPagedPool, REGISTRY_MONITOR_TAG) RegistryBlockingFilter(DriverObject, this->Detector, InitializeStatus);
 	if (NT_SUCCESS(*InitializeStatus) == FALSE)
 	{
 		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize the registry blocking filter with status 0x%X.", *InitializeStatus);

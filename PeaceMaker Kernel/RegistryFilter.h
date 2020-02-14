@@ -1,6 +1,9 @@
 #pragma once
 #include "common.h"
 #include "StringFilters.h"
+#include "StackWalker.h"
+#include "DetectionLogic.h"
+#include "ImageHistoryFilter.h"
 
 typedef class RegistryBlockingFilter
 {
@@ -23,9 +26,13 @@ typedef class RegistryBlockingFilter
 	// Cookie used to remove registry callback.
 	//
 	static LARGE_INTEGER RegistryFilterCookie;
+
+	static STACK_WALKER walker;
+	static PDETECTION_LOGIC detector;
 public:
 	RegistryBlockingFilter (
 		_In_ PDRIVER_OBJECT DriverObject,
+		_In_ PDETECTION_LOGIC Detector,
 		_Out_ NTSTATUS* Initialized
 		);
 	~RegistryBlockingFilter();

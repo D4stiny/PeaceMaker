@@ -55,6 +55,15 @@ public:
 		_In_ STACK_RETURN_INFO StackHistory[],
 		_In_ ULONG StackHistorySize
 		);
+
+	VOID ReportFilterViolation (
+		_In_ DETECTION_SOURCE DetectionSource,
+		_In_ HANDLE CallerProcessId,
+		_In_ PUNICODE_STRING CallerPath,
+		_In_ PUNICODE_STRING ViolatingPath,
+		_In_ STACK_RETURN_INFO StackHistory[],
+		_In_ ULONG StackHistorySize
+		);
 } DETECTION_LOGIC, *PDETECTION_LOGIC;
 
 #define ALERT_QUEUE_TAG 'qAmP'

@@ -3,17 +3,20 @@
 FLT_REGISTRATION FSBlockingFilter::FilterRegistration;
 PSTRING_FILTERS FSBlockingFilter::FileStringFilters;
 STACK_WALKER FSBlockingFilter::walker;
+PDETECTION_LOGIC FSBlockingFilter::detector;
 
 /**
 	Initializes the necessary components of the filesystem filter.
 	@param DriverObject - The object of the driver necessary for mini-filter initialization.
 	@param UnloadRoutine - The function to call on the unload of the mini-filter.
+	@param Detector - Detection instance used to analyze untrusted operations.
 	@param InitializeStatus - Status of initialization.
 	@param FilterHandle - The pointer to place the handle for the filter to.
 */
 FSBlockingFilter::FSBlockingFilter (
 	_In_ PDRIVER_OBJECT DriverObject,
 	_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
+	_In_ PDETECTION_LOGIC Detector,
 	_Out_ NTSTATUS* InitializeStatus,
 	_Out_ PFLT_FILTER* FilterHandle
 	)
@@ -68,6 +71,11 @@ FSBlockingFilter::FSBlockingFilter (
 
 		FltUnregisterFilter(*FilterHandle);
 	}
+
+	//
+	// Set the detector.
+	//
+	FSBlockingFilter::detector = Detector;
 }
 
 /**
@@ -111,10 +119,16 @@ FSBlockingFilter::HandlePreCreateOperation(
 	FLT_PREOP_CALLBACK_STATUS callbackStatus;
 	PFLT_FILE_NAME_INFORMATION fileNameInfo;
 
+	PUNICODE_STRING callerProcessPath;
+	PSTACK_RETURN_INFO fileOperationStack;
+	ULONG fileOperationStackSize;
+	BOOLEAN reportOperation;
 
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
+	reportOperation = FALSE;
+	fileOperationStackSize = MAX_STACK_RETURN_HISTORY;
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
@@ -125,10 +139,12 @@ FSBlockingFilter::HandlePreCreateOperation(
 			if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_DELETE) != FALSE)
 			{
 				DBGPRINT("FSBlockingFilter!HandlePreCreateOperation: Detected FILE_DELETE_ON_CLOSE of %wZ. Prevented deletion!", fileNameInfo->Name);
+
 				Data->Iopb->TargetFileObject->DeletePending = FALSE;
 				Data->IoStatus.Information = 0;
 				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
 				callbackStatus = FLT_PREOP_COMPLETE;
+				reportOperation = TRUE;
 			}
 		}
 	}
@@ -144,8 +160,35 @@ FSBlockingFilter::HandlePreCreateOperation(
 				Data->IoStatus.Information = 0;
 				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
 				callbackStatus = FLT_PREOP_COMPLETE;
+				reportOperation = TRUE;
 			}
 		}
+	}
+
+	if (reportOperation)
+	{
+		//
+		// Grab the caller's path.
+		//
+		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &callerProcessPath);
+
+		//
+		// Walk the stack.
+		//
+		FSBlockingFilter::walker.WalkAndResolveStack(&fileOperationStack, &fileOperationStackSize, STACK_HISTORY_TAG);
+
+		NT_ASSERT(fileOperationStack);
+
+		//
+		// Report the violation.
+		//
+		FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
+
+		//
+		// Clean up.
+		//
+		ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 
 	if (fileNameInfo)
@@ -172,9 +215,16 @@ FSBlockingFilter::HandlePreWriteOperation(
 	FLT_PREOP_CALLBACK_STATUS callbackStatus;
 	PFLT_FILE_NAME_INFORMATION fileNameInfo;
 
+	PUNICODE_STRING callerProcessPath;
+	PSTACK_RETURN_INFO fileOperationStack;
+	ULONG fileOperationStackSize;
+	BOOLEAN reportOperation;
+
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
+	reportOperation = FALSE;
+	fileOperationStackSize = MAX_STACK_RETURN_HISTORY;
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
@@ -187,7 +237,34 @@ FSBlockingFilter::HandlePreWriteOperation(
 			Data->IoStatus.Information = 0;
 			Data->IoStatus.Status = STATUS_ACCESS_DENIED;
 			callbackStatus = FLT_PREOP_COMPLETE;
+			reportOperation = TRUE;
 		}
+	}
+
+	if (reportOperation)
+	{
+		//
+		// Grab the caller's path.
+		//
+		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &callerProcessPath);
+
+		//
+		// Walk the stack.
+		//
+		FSBlockingFilter::walker.WalkAndResolveStack(&fileOperationStack, &fileOperationStackSize, STACK_HISTORY_TAG);
+
+		NT_ASSERT(fileOperationStack);
+
+		//
+		// Report the violation.
+		//
+		FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
+
+		//
+		// Clean up.
+		//
+		ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 
 	if (fileNameInfo)
@@ -214,9 +291,16 @@ FSBlockingFilter::HandlePreSetInfoOperation(
 	FLT_PREOP_CALLBACK_STATUS callbackStatus;
 	PFLT_FILE_NAME_INFORMATION fileNameInfo;
 
+	PUNICODE_STRING callerProcessPath;
+	PSTACK_RETURN_INFO fileOperationStack;
+	ULONG fileOperationStackSize;
+	BOOLEAN reportOperation;
+
 	UNREFERENCED_PARAMETER(FltObjects);
 	UNREFERENCED_PARAMETER(CompletionContext);
 
+	reportOperation = FALSE;
+	fileOperationStackSize = MAX_STACK_RETURN_HISTORY;
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
@@ -231,9 +315,36 @@ FSBlockingFilter::HandlePreSetInfoOperation(
 				Data->IoStatus.Information = 0;
 				Data->IoStatus.Status = STATUS_ACCESS_DENIED;
 				callbackStatus = FLT_PREOP_COMPLETE;
+				reportOperation = TRUE;
 			}
 		}
 		break;
+	}
+
+	if (reportOperation)
+	{
+		//
+		// Grab the caller's path.
+		//
+		ImageHistoryFilter::GetProcessImageFileName(PsGetCurrentProcessId(), &callerProcessPath);
+
+		//
+		// Walk the stack.
+		//
+		FSBlockingFilter::walker.WalkAndResolveStack(&fileOperationStack, &fileOperationStackSize, STACK_HISTORY_TAG);
+
+		NT_ASSERT(fileOperationStack);
+
+		//
+		// Report the violation.
+		//
+		FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
+
+		//
+		// Clean up.
+		//
+		ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 
 	if (fileNameInfo)

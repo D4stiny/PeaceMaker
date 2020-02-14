@@ -327,7 +327,7 @@ ImageHistoryFilter::AddProcessToHistory (
 	//
 	ImageHistoryFilter::detector->AuditCallerProcessId(ProcessCreate,
 													   PsGetCurrentProcessId(),
-													   ProcessId,
+													   CreateInfo->ParentProcessId,
 													   newProcessHistory->ParentImageFileName,
 													   newProcessHistory->ProcessImageFileName,
 													   newProcessHistory->CallerStackHistory,
@@ -916,6 +916,58 @@ ImageHistoryFilter::PopulateProcessSizes (
 	// Release the lock.
 	//
 	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+}
+
+/**
+	Increment process thread count by one and retrieve the latest value.
+	@param ProcessId - The process ID of the target process.
+	@param ThreadCount - The resulting thread count.
+	@return Whether or not the process was found.
+*/
+BOOLEAN
+ImageHistoryFilter::AddProcessThreadCount (
+	_In_ HANDLE ProcessId,
+	_Inout_ ULONG* ThreadCount
+	)
+{
+	PPROCESS_HISTORY_ENTRY currentProcessHistory;
+	BOOLEAN foundProcess;
+
+	foundProcess = FALSE;
+
+	if (ImageHistoryFilter::destroying)
+	{
+		return foundProcess;
+	}
+
+	//
+	// Acquire a shared lock to iterate processes.
+	//
+	FltAcquirePushLockShared(&ImageHistoryFilter::ProcessHistoryLock);
+
+	if (ImageHistoryFilter::ProcessHistoryHead)
+	{
+		currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(ImageHistoryFilter::ProcessHistoryHead->ListEntry.Blink);
+		while (currentProcessHistory && currentProcessHistory != ImageHistoryFilter::ProcessHistoryHead)
+		{
+			if (ProcessId == currentProcessHistory->ProcessId &&
+				currentProcessHistory->ProcessTerminated == FALSE)
+			{
+				currentProcessHistory->ProcessThreadCount++;
+				*ThreadCount = currentProcessHistory->ProcessThreadCount;
+				foundProcess = TRUE;
+				break;
+			}
+			currentProcessHistory = RCAST<PPROCESS_HISTORY_ENTRY>(currentProcessHistory->ListEntry.Blink);
+		}
+	}
+
+	//
+	// Release the lock.
+	//
+	FltReleasePushLock(&ImageHistoryFilter::ProcessHistoryLock);
+
+	return foundProcess;
 }
 
 VOID
