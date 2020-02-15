@@ -278,16 +278,16 @@ void InvestigateProcessWindow::on_ImagesTable_cellClicked(int row, int column)
     ULONG i;
     QString stackHistoryString;
     QString tooltip;
-    CHAR tempBuffer[sizeof(SYMBOL_INFO) + MAX_SYM_NAME];
-    PSYMBOL_INFO currentSymbolInformation;
+    CHAR tempBuffer[sizeof(IMAGEHLP_SYMBOL64) + MAX_SYM_NAME];
+    PIMAGEHLP_SYMBOL64 currentSymbolInformation;
     ULONG64 offset;
     QTableWidgetItem* newWidget;
     bool stackHistoryViolation;
 
     memset(tempBuffer, 0, sizeof(tempBuffer));
-    currentSymbolInformation = RCAST<PSYMBOL_INFO>(tempBuffer);
-    currentSymbolInformation->SizeOfStruct = sizeof(SYMBOL_INFO);
-    currentSymbolInformation->MaxNameLen = MAX_SYM_NAME;
+    currentSymbolInformation = RCAST<PIMAGEHLP_SYMBOL64>(tempBuffer);
+    currentSymbolInformation->SizeOfStruct = sizeof(IMAGEHLP_SYMBOL64);
+    currentSymbolInformation->MaxNameLength = MAX_SYM_NAME;
 
     image = images[row];
     imageDetailed = communicator->RequestDetailedImage(this->ProcessId, this->EpochExecutionTime, row, image.StackSize);
@@ -306,10 +306,10 @@ void InvestigateProcessWindow::on_ImagesTable_cellClicked(int row, int column)
         //
         // First, try a symbol lookup.
         //
-        if(SymFromAddr(GetCurrentProcess(), RCAST<DWORD64>(imageDetailed->StackHistory[i].RawAddress), &offset, currentSymbolInformation))
+        if(SymGetSymFromAddr64(GetCurrentProcess(), RCAST<DWORD64>(imageDetailed->StackHistory[i].RawAddress), &offset, currentSymbolInformation))
         {
             stackHistoryString = stackHistoryString.sprintf("%s+0x%llx", currentSymbolInformation->Name, offset);
-            tooltip = stackHistoryString.sprintf("%ls+0x%llx", imageDetailed->StackHistory[i].BinaryPath, imageDetailed->StackHistory[i].BinaryOffset);
+            tooltip = tooltip.sprintf("%ls+0x%llx", imageDetailed->StackHistory[i].BinaryPath, imageDetailed->StackHistory[i].BinaryOffset);
         }
         else
         {

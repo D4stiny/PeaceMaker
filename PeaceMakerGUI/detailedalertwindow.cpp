@@ -204,7 +204,7 @@ void DetailedAlertWindow::UpdateDisplayAlert(PBASE_ALERT_INFO AlertInfo)
         if(SymFromAddr(GetCurrentProcess(), RCAST<DWORD64>(stackHistory[i].RawAddress), &offset, currentSymbolInformation))
         {
             stackHistoryString = stackHistoryString.sprintf("%s+0x%llx", currentSymbolInformation->Name, offset);
-            tooltip = stackHistoryString.sprintf("%ls+0x%llx", stackHistory[i].BinaryPath, stackHistory[i].BinaryOffset);
+            tooltip = tooltip.sprintf("%ls+0x%llx", stackHistory[i].BinaryPath, stackHistory[i].BinaryOffset);
         }
         else
         {

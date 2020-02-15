@@ -257,11 +257,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     CreateThread(NULL, 0, RCAST<LPTHREAD_START_ROUTINE>(this->ThreadUpdateTables), this, 0, NULL);
 
-    QDir().mkdir("C:\\Symbols");
-    LoadLibrary(L"symsrv.dll");
-    SymSetOptions(SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
     SymInitialize(GetCurrentProcess(), NULL, TRUE);
-    SymSetSearchPath(GetCurrentProcess(), "SRV*C:\\Symbols*https://msdl.microsoft.com/download/symbols");
 }
 
 MainWindow::~MainWindow()
