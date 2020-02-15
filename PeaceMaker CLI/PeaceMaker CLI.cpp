@@ -1,6 +1,9 @@
-// PeaceMaker CLI.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
+/*
+ * This file is subject to the terms and conditions defined in
+ * file 'LICENSE', which is part of this source code package.
+ * 
+ * COPYRIGHT Bill Demirkapi 2020
+ */
 #include <Windows.h>
 #include <iostream>
 #include <string>
