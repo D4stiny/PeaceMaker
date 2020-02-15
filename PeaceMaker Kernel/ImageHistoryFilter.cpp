@@ -638,7 +638,7 @@ ImageHistoryFilter::LoadImageNotifyRoutine(
 	//
 	ImageHistoryFilter::detector->AuditUserStackWalk(ImageLoad,
 													 PsGetCurrentProcessId(),
-													 newImageLoadHistory->CallerImageFileName,
+													 currentProcessHistory->ProcessImageFileName,
 													 &newImageLoadHistory->ImageFileName,
 													 newImageLoadHistory->CallerStackHistory,
 													 newImageLoadHistory->CallerStackHistorySize);
