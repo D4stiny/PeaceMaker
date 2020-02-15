@@ -22,6 +22,8 @@ class ClickableTab : public QLabel {
     QWidget* mainWindow;
     bool tabActive;
     std::vector<QWidget*> associatedElements;
+    QString oldText;
+    bool customText = false;
 
 public:
     explicit ClickableTab(QWidget* parent = Q_NULLPTR, Qt::WindowFlags f = Qt::WindowFlags());
@@ -29,6 +31,7 @@ public:
 
     void SwapActiveState();
     void AddAssociatedElement(QWidget* widget);
+    void SetCustomText(QString newText);
 signals:
     void clicked();
 

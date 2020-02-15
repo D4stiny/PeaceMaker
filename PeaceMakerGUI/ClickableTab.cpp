@@ -39,8 +39,12 @@ void ClickableTab::SwapActiveState()
     //
     // Get the current tab content.
     //
-    this->text();
     currentTabContent = this->text().toStdString();
+    if(customText)
+    {
+        currentTabContent = oldText.toStdString();
+        customText = false;
+    }
     //
     // Replace the active state depending on whether it was already active.
     //
@@ -83,6 +87,17 @@ void ClickableTab::AddAssociatedElement(QWidget *widget)
     // By default, widgets should be hidden.
     //
     widget->setVisible(false);
+}
+
+/**
+ * @brief ClickableTab::SetCustomText - Set custom text for the tab, but store the previous text.
+ * @param newText - The new custom text to set.
+ */
+void ClickableTab::SetCustomText(QString newText)
+{
+    oldText = this->text();
+    this->setText(newText);
+    customText = true;
 }
 
 /**

@@ -19,6 +19,7 @@ SOURCES += \
     ClickableTab.cpp \
     InvestigateProcessWindow.cpp \
     addfilterwindow.cpp \
+    configparser.cpp \
     detailedalertwindow.cpp \
     main.cpp \
     mainwindow.cpp
@@ -27,6 +28,7 @@ HEADERS += \
     ClickableTab.h \
     InvestigateProcessWindow.h \
     addfilterwindow.h \
+    configparser.h \
     detailedalertwindow.h \
     mainwindow.h
 

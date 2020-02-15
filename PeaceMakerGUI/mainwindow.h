@@ -17,6 +17,7 @@
 #include "addfilterwindow.h"
 #include "ClickableTab.h"
 #include "IOCTLCommunicationUser.h"
+#include "configparser.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -43,6 +44,9 @@ class MainWindow : public QMainWindow
     std::vector<PROCESS_SUMMARY_ENTRY> processes;
     std::vector<FILTER_INFO> filters;
 
+    ConfigParser config;
+    FALSE_POSITIVES alertFalsePositives;
+
     IOCTLCommunication communicator;
 
     void InitializeCommonTable(QTableWidget* table);
@@ -50,6 +54,9 @@ class MainWindow : public QMainWindow
     void InitializeAlertsTable();
     void InitializeProcessesTable();
     void InitializeFiltersTable();
+
+    void ImportConfigFilters();
+    BOOLEAN importedConfigFilters = FALSE;
 
     static void ThreadUpdateTables(MainWindow* This);
 

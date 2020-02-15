@@ -30,6 +30,8 @@
 #define SCAST static_cast
 #define CCAST const_cast
 
+#define CONFIG_FILE_NAME "peacemaker.cfg"
+
 //
 // Maximum amount of STACK_RETURN_INFO to have in the process execution stack return history.
 //

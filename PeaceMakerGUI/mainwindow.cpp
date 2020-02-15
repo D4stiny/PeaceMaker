@@ -119,6 +119,40 @@ void MainWindow::InitializeFiltersTable()
 }
 
 /**
+ * @brief MainWindow::ImportConfigFilters - One-time config filter import.
+ */
+void MainWindow::ImportConfigFilters()
+{
+    std::vector<FILTER_INFO> configFilters;
+    BOOLEAN filterExists;
+
+    configFilters = config.GetConfigFilters();
+    for(FILTER_INFO configFilter : configFilters)
+    {
+        filterExists = FALSE;
+        //
+        // Make sure we don't add an existing filter.
+        //
+        for(FILTER_INFO existingFilter : filters)
+        {
+            if(existingFilter.Type == configFilter.Type &&
+               wcscmp(existingFilter.MatchString, configFilter.MatchString) == 0)
+            {
+                filterExists = TRUE;
+                break;
+            }
+        }
+        if(filterExists)
+        {
+            printf("MainWindow!ImportConfigFilters: Ignoring filter with content %ls. Already exists.\n", configFilter.MatchString);
+            continue;
+        }
+        communicator.AddFilter(configFilter.Type, configFilter.Flags, configFilter.MatchString, configFilter.MatchStringSize);
+        printf("MainWindow!ImportConfigFilters: Added config filter with content %ls.\n", configFilter.MatchString);
+    }
+}
+
+/**
  * @brief MainWindow::ThreadUpdateTables - Thread callback that updates all tables.
  * @param This - This pointer for the MainWindow instance.
  */
@@ -169,6 +203,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
             }
 
             This->AddAlertSummary(currentAlert);
+            This->ui->AlertsLabel->SetCustomText("<img src=\":/assets/PendingAlertsTab.png\"/>");
         }
 
         //
@@ -228,6 +263,14 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
                 }
             }
         }
+        //
+        // Import filters defined in our config if not done before.
+        //
+        if(This->importedConfigFilters == FALSE)
+        {
+            This->ImportConfigFilters();
+            This->importedConfigFilters = TRUE;
+        }
         Sleep(3000);
     }
 }
@@ -235,6 +278,7 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , config(CONFIG_FILE_NAME)
 {
     ui->setupUi(this);
     this->setFixedSize(QSize(990, 610));
@@ -254,6 +298,7 @@ MainWindow::MainWindow(QWidget *parent)
     this->alertWindow = new DetailedAlertWindow();
     this->addFilterWindow = new AddFilterWindow();
     this->addFilterWindow->communicator = &this->communicator;
+    this->alertFalsePositives = config.GetConfigFalsePositives();
 
     CreateThread(NULL, 0, RCAST<LPTHREAD_START_ROUTINE>(this->ThreadUpdateTables), this, 0, NULL);
 
@@ -298,6 +343,36 @@ void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
     std::string date;
     std::string alertName;
 
+    PSTACK_VIOLATION_ALERT stackViolationAlert;
+    PFILTER_VIOLATION_ALERT filterViolationAlert;
+    PREMOTE_OPERATION_ALERT remoteOperationAlert;
+    STACK_RETURN_INFO* stackHistory;
+    ULONG stackHistorySize;
+    ULONG i;
+
+    //
+    // Filter source path.
+    //
+    for(std::wstring filteredSourcePath : alertFalsePositives.SourcePathFilter)
+    {
+        if(wcsstr(Alert->SourcePath, filteredSourcePath.c_str()) != NULL)
+        {
+            printf("MainWindow!AddAlertSummary: Ignoring alert, matched source path filter %ls.\n", filteredSourcePath.c_str());
+            return;
+        }
+    }
+    //
+    // Filter target path.
+    //
+    for(std::wstring filteredTargetPath : alertFalsePositives.TargetPathFilter)
+    {
+        if(wcsstr(Alert->TargetPath, filteredTargetPath.c_str()) != NULL)
+        {
+            printf("MainWindow!AddAlertSummary: Ignoring alert, matched target path filter %ls.\n", filteredTargetPath.c_str());
+            return;
+        }
+    }
+
     //
     // Get the current time.
     //
@@ -312,17 +387,57 @@ void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
     {
     case StackViolation:
         alertName = "Stack Violation";
+        stackViolationAlert = RCAST<PSTACK_VIOLATION_ALERT>(Alert);
+        //
+        // Set the stack history info for this alert.
+        //
+        stackHistory = stackViolationAlert->StackHistory;
+        stackHistorySize = stackViolationAlert->StackHistorySize;
         break;
     case FilterViolation:
         alertName = "Filter Violation";
+        filterViolationAlert = RCAST<PFILTER_VIOLATION_ALERT>(Alert);
+        //
+        // Set the stack history info for this alert.
+        //
+        stackHistory = filterViolationAlert->StackHistory;
+        stackHistorySize = filterViolationAlert->StackHistorySize;
         break;
     case ParentProcessIdSpoofing:
         alertName = "Parent Process ID Spoofing";
+        remoteOperationAlert = RCAST<PREMOTE_OPERATION_ALERT>(Alert);
+        //
+        // Set the stack history info for this alert.
+        //
+        stackHistory = remoteOperationAlert->StackHistory;
+        stackHistorySize = remoteOperationAlert->StackHistorySize;
         break;
     case RemoteThreadCreation:
         alertName = "Remote Thread Creation";
+        remoteOperationAlert = RCAST<PREMOTE_OPERATION_ALERT>(Alert);
+        //
+        // Set the stack history info for this alert.
+        //
+        stackHistory = remoteOperationAlert->StackHistory;
+        stackHistorySize = remoteOperationAlert->StackHistorySize;
         break;
     }
+
+    //
+    // Filter stack history.
+    //
+    for(i = 0; i < stackHistorySize; i++)
+    {
+        for(std::wstring filteredStackHistory : alertFalsePositives.StackHistoryFilter)
+        {
+            if(wcsstr(stackHistory[i].BinaryPath, filteredStackHistory.c_str()) != NULL)
+            {
+                printf("MainWindow!AddAlertSummary: Ignoring alert, matched stack history filter %ls.\n", filteredStackHistory.c_str());
+                return;
+            }
+        }
+    }
+
 
     this->ui->AlertsTable->setRowCount(this->AlertsTableSize + 1);
     this->ui->AlertsTable->insertRow(0);
