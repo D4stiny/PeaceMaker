@@ -7,6 +7,7 @@ PFLT_FILTER IOCTLCommunication::FileFilterHandle;
 PFS_BLOCKING_FILTER IOCTLCommunication::FilesystemMonitor;
 PREGISTRY_BLOCKING_FILTER IOCTLCommunication::RegistryMonitor;
 PTHREAD_FILTER IOCTLCommunication::ThreadOperationFilter;
+PTAMPER_GUARD IOCTLCommunication::TamperGuardFilter;
 
 /**
 	Construct the IOCTLCommunication class by initializing the driver object and detector.
@@ -73,6 +74,13 @@ IOCTLCommunication::IOCTLCommunication (
 		return;
 	}
 
+	this->TamperGuardFilter = new (NonPagedPool, TAMPER_GUARD_TAG) TamperGuard(InitializeStatus);
+	if (NT_SUCCESS(*InitializeStatus) == FALSE)
+	{
+		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize tamper guard with status 0x%X.", *InitializeStatus);
+		return;
+	}
+
 	InitializeDriverIOCTL();
 }
 
@@ -99,6 +107,9 @@ IOCTLCommunication::~IOCTLCommunication	(
 
 	this->ThreadOperationFilter->~ThreadFilter();
 	ExFreePoolWithTag(this->ThreadOperationFilter, THREAD_FILTER_TAG);
+
+	this->TamperGuardFilter->~TamperGuard();
+	ExFreePoolWithTag(this->TamperGuardFilter, TAMPER_GUARD_TAG);
 
 	UninitializeDriverIOCTL();
 }
@@ -170,6 +181,11 @@ IOCTLCommunication::IOCTLDeviceControl (
 	inputLength = irpStackLocation->Parameters.DeviceIoControl.InputBufferLength;
 	outputLength = irpStackLocation->Parameters.DeviceIoControl.OutputBufferLength;
 	writtenLength = 0;
+	
+	//
+	// Update the tamper guard.
+	//
+	IOCTLCommunication::TamperGuardFilter->UpdateProtectedProcess(PsGetCurrentProcessId());
 
 	DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: ioctlCode = 0x%X, inputLength = 0x%X, outputLength = 0x%X", ioctlCode, inputLength, outputLength);
 

@@ -5,6 +5,7 @@
 #include "ThreadFilter.h"
 #include "FSFilter.h"
 #include "RegistryFilter.h"
+#include "TamperGuard.h"
 
 typedef class IOCTLCommunication
 {
@@ -15,6 +16,7 @@ typedef class IOCTLCommunication
 	static PFS_BLOCKING_FILTER FilesystemMonitor;
 	static PREGISTRY_BLOCKING_FILTER RegistryMonitor;
 	static PTHREAD_FILTER ThreadOperationFilter;
+	static PTAMPER_GUARD TamperGuardFilter;
 
 	NTSTATUS InitializeDriverIOCTL(VOID);
 	VOID UninitializeDriverIOCTL(VOID);
@@ -42,3 +44,4 @@ public:
 #define FILE_MONITOR_TAG 'mFmP'
 #define REGISTRY_MONITOR_TAG 'mRmP'
 #define THREAD_FILTER_TAG 'fTmP'
+#define TAMPER_GUARD_TAG 'gTmP'

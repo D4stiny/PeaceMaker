@@ -35,6 +35,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="TamperGuard.cpp" />
     <ClCompile Include="ThreadFilter.cpp" />
     <ResourceCompile Include="PeaceMaker Kernel.rc" />
     <ClCompile Include="AlertQueue.cpp" />
@@ -209,6 +210,7 @@
     <ClInclude Include="shared.h" />
     <ClInclude Include="StackWalker.h" />
     <ClInclude Include="StringFilters.h" />
+    <ClInclude Include="TamperGuard.h" />
     <ClInclude Include="ThreadFilter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
