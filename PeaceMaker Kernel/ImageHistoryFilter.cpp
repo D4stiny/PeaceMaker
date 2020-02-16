@@ -254,22 +254,24 @@ ImageHistoryFilter::AddProcessToHistory (
 	//
 	// Allocate the necessary space.
 	//
-	newProcessHistory->ProcessCommandLine = RCAST<PUNICODE_STRING>(ExAllocatePoolWithTag(PagedPool, sizeof(UNICODE_STRING) + CreateInfo->CommandLine->Length, IMAGE_COMMMAND_TAG));
-	if (newProcessHistory->ProcessCommandLine == NULL)
+	if (CreateInfo->CommandLine)
 	{
-		DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to allocate space for process command line.");
-		goto Exit;
+		newProcessHistory->ProcessCommandLine = RCAST<PUNICODE_STRING>(ExAllocatePoolWithTag(PagedPool, sizeof(UNICODE_STRING) + CreateInfo->CommandLine->Length, IMAGE_COMMMAND_TAG));
+		if (newProcessHistory->ProcessCommandLine == NULL)
+		{
+			DBGPRINT("ImageHistoryFilter!AddProcessToHistory: Failed to allocate space for process command line.");
+			goto Exit;
+		}
+
+		newProcessHistory->ProcessCommandLine->Buffer = RCAST<PWCH>(RCAST<ULONG_PTR>(newProcessHistory->ProcessCommandLine) + sizeof(UNICODE_STRING));
+		newProcessHistory->ProcessCommandLine->Length = CreateInfo->CommandLine->Length;
+		newProcessHistory->ProcessCommandLine->MaximumLength = CreateInfo->CommandLine->Length;
+
+		//
+		// Copy the command line string.
+		//
+		RtlCopyUnicodeString(newProcessHistory->ProcessCommandLine, CreateInfo->CommandLine);
 	}
-
-	newProcessHistory->ProcessCommandLine->Buffer = RCAST<PWCH>(RCAST<ULONG_PTR>(newProcessHistory->ProcessCommandLine) + sizeof(UNICODE_STRING));
-	newProcessHistory->ProcessCommandLine->Length = CreateInfo->CommandLine->Length;
-	newProcessHistory->ProcessCommandLine->MaximumLength = CreateInfo->CommandLine->Length;
-
-	//
-	// Copy the command line string.
-	//
-	RtlCopyUnicodeString(newProcessHistory->ProcessCommandLine, CreateInfo->CommandLine);
-
 	//
 	// These fields are optional.
 	//
