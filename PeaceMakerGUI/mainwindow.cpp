@@ -203,7 +203,6 @@ void MainWindow::ThreadUpdateTables(MainWindow *This)
             }
 
             This->AddAlertSummary(currentAlert);
-            This->ui->AlertsLabel->SetCustomText("<img src=\":/assets/PendingAlertsTab.png\"/>");
         }
 
         //
@@ -446,6 +445,7 @@ void MainWindow::AddAlertSummary(PBASE_ALERT_INFO Alert)
     this->AlertsTableSize++;
 
     alerts.push_back(Alert);
+    this->ui->AlertsLabel->SetCustomText("<img src=\":/assets/PendingAlertsTab.png\"/>");
 }
 
 /**
