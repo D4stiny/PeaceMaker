@@ -57,13 +57,11 @@ DriverEntry (
 {
     NTSTATUS status;
 
-    UNREFERENCED_PARAMETER( RegistryPath );
-
 	status = STATUS_SUCCESS;
 
 	DBGPRINT("FilterTesting!DriverEntry: Hello world.");
 
-	Communicator = new (NonPagedPool, 'cImP') IOCTLCommunication(DriverObject, FilterUnload, &status);
+	Communicator = new (NonPagedPool, 'cImP') IOCTLCommunication(DriverObject, RegistryPath, FilterUnload, &status);
 	if (NT_SUCCESS(status) == FALSE)
 	{
 		DBGPRINT("FilterTesting!DriverEntry: Failed to initialize communication with status 0x%X.", status);

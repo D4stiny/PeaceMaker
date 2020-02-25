@@ -48,7 +48,7 @@ Description      = %ServiceDescription%
 ServiceBinary    = %12%\%DriverName%.sys        ;%windir%\system32\drivers\
 Dependencies     = "FltMgr"
 ServiceType      = 2                            ;SERVICE_FILE_SYSTEM_DRIVER
-StartType        = 3                            ;SERVICE_DEMAND_START
+StartType        = 2                            ;SERVICE_AUTO_START
 ErrorControl     = 1                            ;SERVICE_ERROR_NORMAL
 ; TODO - Change the Load Order Group value
 ; LoadOrderGroup = "FSFilter Activity Monitor"

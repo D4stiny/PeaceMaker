@@ -38,6 +38,7 @@ typedef class RegistryBlockingFilter
 public:
 	RegistryBlockingFilter (
 		_In_ PDRIVER_OBJECT DriverObject,
+		_In_ PUNICODE_STRING RegistryPath,
 		_In_ PDETECTION_LOGIC Detector,
 		_Out_ NTSTATUS* Initialized
 		);

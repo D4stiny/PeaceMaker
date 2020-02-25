@@ -8,8 +8,13 @@
 
 /**
 	Initialize the CUSTOM_FILTERS class by initializing the linked list's lock.
+	@param RegistryPath - The registry path of the driver.
+	@param FilterStoreName - Name of the filter store.
 */
-StringFilters::StringFilters()
+StringFilters::StringFilters (
+	_In_ PUNICODE_STRING RegistryPath,
+	_In_ CONST WCHAR* FilterStoreName
+	)
 {
 	//
 	// Initialize the lock for the filters.
@@ -19,6 +24,15 @@ StringFilters::StringFilters()
 	this->filtersHead = RCAST<PFILTER_INFO_LINKED>(ExAllocatePoolWithTag(NonPagedPool, sizeof(FILTER_INFO_LINKED), FILTER_INFO_TAG));
 	InitializeListHead(RCAST<PLIST_ENTRY>(this->filtersHead));
 	this->destroying = FALSE;
+
+	//
+	// Initialize space for the driver registry key.
+	//
+	this->driverRegistryPath.Buffer = RCAST<PWCH>(ExAllocatePoolWithTag(NonPagedPool, RegistryPath->MaximumLength, FILTER_INFO_TAG));
+	this->driverRegistryPath.MaximumLength = RegistryPath->MaximumLength;
+	RtlCopyUnicodeString(&this->driverRegistryPath, RegistryPath);
+
+	RtlInitUnicodeString(&this->filterStoreValueName, FilterStoreName);
 }
 
 /**
@@ -67,25 +81,32 @@ StringFilters::~StringFilters()
 		//
 		ExFreePoolWithTag(SCAST<PVOID>(this->filtersHead), FILTER_INFO_TAG);
 	}
+
+	//
+	// Free the driver registy path.
+	//
+	ExFreePoolWithTag(this->driverRegistryPath.Buffer, FILTER_INFO_TAG);
 }
 
 /**
 	Add a filter to the linked list of filters.
 	@param MatchString - The string to filter with.
 	@param OperationFlag - Specifies what operations this filter should be used for.
+	@param SaveFilters - Whether or not to save filters.
 	@return A random identifier required for future operations with the new filter.
 */
 ULONG
 StringFilters::AddFilter (
 	_In_ WCHAR* MatchString,
-	_In_ ULONG OperationFlag
+	_In_ ULONG OperationFlag,
+	_In_ BOOLEAN SaveFilters
 	)
 {
 	PFILTER_INFO_LINKED newFilter;
 	LARGE_INTEGER currentTime;
 	ULONG epochSeconds;
 
-	if (this->destroying)
+	if (this == NULL || this->destroying)
 	{
 		return NULL;
 	}
@@ -132,6 +153,10 @@ Exit:
 	// New filter has been initialized, release the lock.
 	//
 	FltReleasePushLock(&this->filtersLock);
+	if (SaveFilters)
+	{
+		this->SaveFilters();
+	}
 
 	if (newFilter)
 	{
@@ -160,7 +185,7 @@ StringFilters::RemoveFilter(
 	currentFilter = NULL;
 	filterDeleted = FALSE;
 
-	if (this->destroying)
+	if (this == NULL || this->destroying)
 	{
 		return FALSE;
 	}
@@ -229,6 +254,11 @@ StringFilters::MatchesFilter (
 	PFILTER_INFO_LINKED currentFilter;
 	WCHAR tempStrToCmp[MAX_PATH];
 	INT i;
+
+	if (this == NULL || this->destroying)
+	{
+		return FALSE;
+	}
 
 	filterMatched = FALSE;
 
@@ -325,4 +355,174 @@ StringFilters::GetFilters (
 	FltReleasePushLock(&this->filtersLock);
 
 	return copyCount;
+}
+
+/**
+	Save the current filters to the registry for persistence.
+	@return Whether or not the save was successful.
+*/
+BOOLEAN
+StringFilters::SaveFilters (
+	VOID
+	)
+{
+	PFILTER_STORE filterStore;
+	PFILTER_INFO_LINKED currentFilter;
+	ULONG i;
+	OBJECT_ATTRIBUTES driverRegistryAttributes;
+	NTSTATUS status;
+	HANDLE driverRegistryKey;
+	BOOLEAN result;
+
+	result = FALSE;
+	driverRegistryKey = NULL;
+	i = 0;
+
+	//
+	// Allocate space for the filter store.
+	//
+	filterStore = RCAST<PFILTER_STORE>(ExAllocatePoolWithTag(NonPagedPool, FILTER_STORE_SIZE(this->filtersCount), FILTER_INFO_TAG));
+	if (filterStore == NULL)
+	{
+		DBGPRINT("StringFilters!SaveFilters: Failed to allocate space for the filter store.");
+		goto Exit;
+	}
+
+	//
+	// Initialize basic members.
+	//
+	filterStore->FilterCount = this->filtersCount;
+
+	//
+	// Acquire a shared lock to iterate filters.
+	//
+	FltAcquirePushLockShared(&this->filtersLock);
+
+	//
+	// Iterate filters for a match.
+	//
+	if (this->filtersHead)
+	{
+		currentFilter = RCAST<PFILTER_INFO_LINKED>(this->filtersHead->ListEntry.Flink);
+		while (currentFilter && currentFilter != this->filtersHead)
+		{
+			memcpy_s(&filterStore->Filters[i], sizeof(FILTER_INFO), &currentFilter->Filter, sizeof(FILTER_INFO));
+			i++;
+			currentFilter = RCAST<PFILTER_INFO_LINKED>(currentFilter->ListEntry.Flink);
+		}
+	}
+
+	FltReleasePushLock(&this->filtersLock);
+
+	//
+	// Open the driver's registry key.
+	//
+	InitializeObjectAttributes(&driverRegistryAttributes, &this->driverRegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+	status = ZwOpenKey(&driverRegistryKey, KEY_ALL_ACCESS, &driverRegistryAttributes);
+	if (NT_SUCCESS(status) == FALSE)
+	{
+		DBGPRINT("StringFilters!SaveFilters: Failed to open driver registry key with status 0x%X.", status);
+		goto Exit;
+	}
+
+	//
+	// Write the current filters.
+	//
+	status = ZwSetValueKey(driverRegistryKey, &this->filterStoreValueName, 0, REG_BINARY, filterStore, FILTER_STORE_SIZE(this->filtersCount));
+	if (NT_SUCCESS(status) == FALSE)
+	{
+		DBGPRINT("StringFilters!SaveFilters: Failed to write filter store to driver registry key with status 0x%X.", status);
+		goto Exit;
+	}
+	result = TRUE;
+Exit:
+	if (filterStore)
+	{
+		ExFreePoolWithTag(filterStore, FILTER_INFO_TAG);
+	}
+	if (driverRegistryKey)
+	{
+		ZwClose(driverRegistryKey);
+	}
+	return result;
+}
+
+/**
+	Restore filters from the registry.
+	@return Whether or not the restoration was successful.
+*/
+BOOLEAN
+StringFilters::RestoreFilters (
+	VOID
+	)
+{
+	OBJECT_ATTRIBUTES driverRegistryAttributes;
+	NTSTATUS status;
+	HANDLE driverRegistryKey;
+	ULONG filterStorePartialSize;
+	PFILTER_STORE filterStore;
+	PKEY_VALUE_PARTIAL_INFORMATION filterStorePartial;
+	ULONG i;
+	BOOLEAN result;
+
+	result = FALSE;
+	i = 0;
+	filterStorePartial = NULL;
+	filterStore = NULL;
+
+	//
+	// Open the driver's registry key.
+	//
+	InitializeObjectAttributes(&driverRegistryAttributes, &this->driverRegistryPath, OBJ_CASE_INSENSITIVE | OBJ_KERNEL_HANDLE, NULL, NULL);
+	status = ZwOpenKey(&driverRegistryKey, KEY_ALL_ACCESS, &driverRegistryAttributes);
+	if (NT_SUCCESS(status) == FALSE)
+	{
+		DBGPRINT("StringFilters!RestoreFilters: Failed to open driver registry key with status 0x%X.", status);
+		goto Exit;
+	}
+	
+	//
+	// Read the size of the FilterStore.
+	//
+	status = ZwQueryValueKey(driverRegistryKey, &this->filterStoreValueName, KeyValuePartialInformation, NULL, 0, &filterStorePartialSize);
+	if (status != STATUS_BUFFER_TOO_SMALL)
+	{
+		DBGPRINT("StringFilters!RestoreFilters: Failed to query filter store size with status 0x%X.", status);
+		goto Exit;
+	}
+	
+	//
+	// Allocate space for the FilterStore partial struct and query the actual value.
+	//
+	filterStorePartial = RCAST<PKEY_VALUE_PARTIAL_INFORMATION>(ExAllocatePoolWithTag(NonPagedPool, filterStorePartialSize, FILTER_INFO_TAG));
+	status = ZwQueryValueKey(driverRegistryKey, &this->filterStoreValueName, KeyValuePartialInformation, filterStorePartial, filterStorePartialSize, &filterStorePartialSize);
+	if (NT_SUCCESS(status) == FALSE)
+	{
+		DBGPRINT("StringFilters!RestoreFilters: Failed to query filter store with status 0x%X.", status);
+		goto Exit;
+	}
+	
+	//
+	// Grab the filter store from the data member of the partial struct.
+	//
+	filterStore = RCAST<PFILTER_STORE>(filterStorePartial->Data);
+
+	//
+	// Add the filters.
+	//
+	for (i = 0; i < filterStore->FilterCount; i++)
+	{
+		this->AddFilter(filterStore->Filters[i].MatchString, filterStore->Filters[i].Flags, FALSE);
+	}
+	result = TRUE;
+Exit:
+	if (driverRegistryKey)
+	{
+		ZwClose(driverRegistryKey);
+	}
+	if (filterStorePartial)
+	{
+		ExFreePoolWithTag(filterStorePartial, FILTER_INFO_TAG);
+	}
+	return result;
 }

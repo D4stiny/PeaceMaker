@@ -14,6 +14,7 @@ PDETECTION_LOGIC FSBlockingFilter::detector;
 /**
 	Initializes the necessary components of the filesystem filter.
 	@param DriverObject - The object of the driver necessary for mini-filter initialization.
+	@param RegistryPath - The registry path of the driver.
 	@param UnloadRoutine - The function to call on the unload of the mini-filter.
 	@param Detector - Detection instance used to analyze untrusted operations.
 	@param InitializeStatus - Status of initialization.
@@ -21,6 +22,7 @@ PDETECTION_LOGIC FSBlockingFilter::detector;
 */
 FSBlockingFilter::FSBlockingFilter (
 	_In_ PDRIVER_OBJECT DriverObject,
+	_In_ PUNICODE_STRING RegistryPath,
 	_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
 	_In_ PDETECTION_LOGIC Detector,
 	_Out_ NTSTATUS* InitializeStatus,
@@ -28,13 +30,17 @@ FSBlockingFilter::FSBlockingFilter (
 	)
 {
 
-	FSBlockingFilter::FileStringFilters = new (PagedPool, STRING_FILE_FILTERS_TAG) StringFilters();
+	FSBlockingFilter::FileStringFilters = new (PagedPool, STRING_FILE_FILTERS_TAG) StringFilters(RegistryPath, L"FileFilterStore");
 	if (FSBlockingFilter::FileStringFilters == NULL)
 	{
 		DBGPRINT("FSBlockingFilter!FSBlockingFilter: Failed to allocate memory for string filters.");
 		*InitializeStatus = STATUS_NO_MEMORY;
 		return;
 	}
+	//
+	// Restore existing filters.
+	//
+	FSBlockingFilter::FileStringFilters->RestoreFilters();
 
 	//
 	// This isn't a constant because the unload routine changes.

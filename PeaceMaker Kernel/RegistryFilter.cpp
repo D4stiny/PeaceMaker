@@ -13,24 +13,30 @@ STACK_WALKER RegistryBlockingFilter::walker;
 /**
 	Initializes the necessary components of the registry filter.
 	@param DriverObject - The object of the driver necessary for mini-filter initialization.
+	@param RegistryPath - The registry path of the driver.
 	@param Detector - Detection instance used to analyze untrusted operations.
 	@param InitializeStatus - Status of initialization.
 */
 RegistryBlockingFilter::RegistryBlockingFilter(
 	_In_ PDRIVER_OBJECT DriverObject,
+	_In_ PUNICODE_STRING RegistryPath,
 	_In_ PDETECTION_LOGIC Detector,
 	_Out_ NTSTATUS* InitializeStatus
 	)
 {
 	UNICODE_STRING filterAltitude;
 
-	RegistryBlockingFilter::RegistryStringFilters = new (NonPagedPool, STRING_REGISTRY_FILTERS_TAG) StringFilters();
+	RegistryBlockingFilter::RegistryStringFilters = new (NonPagedPool, STRING_REGISTRY_FILTERS_TAG) StringFilters(RegistryPath, L"RegistryFilterStore");
 	if (RegistryBlockingFilter::RegistryStringFilters == NULL)
 	{
 		DBGPRINT("RegistryBlockingFilter!RegistryBlockingFilter: Failed to allocate memory for string filters.");
 		*InitializeStatus = STATUS_NO_MEMORY;
 		return;
 	}
+	//
+	// Restore existing filters.
+	//
+	RegistryBlockingFilter::RegistryStringFilters->RestoreFilters();
 
 	//
 	// Put our altitude into a UNICODE_STRING.

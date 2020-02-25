@@ -18,9 +18,13 @@ PTAMPER_GUARD IOCTLCommunication::TamperGuardFilter;
 /**
 	Construct the IOCTLCommunication class by initializing the driver object and detector.
 	@param DriverObject - The driver's object.
+	@param RegistryPath - The registry path of the driver.
+	@param UnloadRoutine - The routine to call when the filter is unloading.
+	@param InitializeStatus - Status of initialization.
 */
 IOCTLCommunication::IOCTLCommunication (
 	_In_ PDRIVER_OBJECT Driver,
+	_In_ PUNICODE_STRING RegistryPath,
 	_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
 	_Inout_ NTSTATUS* InitializeStatus
 	)
@@ -53,14 +57,14 @@ IOCTLCommunication::IOCTLCommunication (
 		return;
 	}
 
-	FilesystemMonitor = new (NonPagedPool, FILE_MONITOR_TAG) FSBlockingFilter(DriverObject, UnloadRoutine, this->Detector, InitializeStatus, &FileFilterHandle);
+	FilesystemMonitor = new (NonPagedPool, FILE_MONITOR_TAG) FSBlockingFilter(DriverObject, RegistryPath, UnloadRoutine, this->Detector, InitializeStatus, &FileFilterHandle);
 	if (NT_SUCCESS(*InitializeStatus) == FALSE)
 	{
 		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize the filesystem blocking filter with status 0x%X.", *InitializeStatus);
 		return;
 	}
 
-	RegistryMonitor = new (NonPagedPool, REGISTRY_MONITOR_TAG) RegistryBlockingFilter(DriverObject, this->Detector, InitializeStatus);
+	RegistryMonitor = new (NonPagedPool, REGISTRY_MONITOR_TAG) RegistryBlockingFilter(DriverObject, RegistryPath, this->Detector, InitializeStatus);
 	if (NT_SUCCESS(*InitializeStatus) == FALSE)
 	{
 		DBGPRINT("IOCTLCommunication!IOCTLCommunication: Failed to initialize the registry blocking filter with status 0x%X.", *InitializeStatus);

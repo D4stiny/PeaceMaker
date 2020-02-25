@@ -14,19 +14,32 @@ typedef struct FilterInfoLinked
 	FILTER_INFO Filter;		// The filter itself.
 } FILTER_INFO_LINKED, *PFILTER_INFO_LINKED;
 
+typedef struct FilterStore
+{
+	ULONG FilterCount;		// Number of filters in the following array.
+	FILTER_INFO Filters[1];	// Dynamically-sized array based on FilterCount member.
+} FILTER_STORE, *PFILTER_STORE;
+
+#define FILTER_STORE_SIZE(filterCount) sizeof(FILTER_STORE) + (sizeof(FILTER_INFO) * (filterCount - 1))
+
 typedef class StringFilters
 {
 	PFILTER_INFO_LINKED filtersHead; // The linked list of filters.
 	EX_PUSH_LOCK filtersLock; // The lock protecting the linked list of filters.
 	BOOLEAN destroying; // This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
-
+	UNICODE_STRING driverRegistryPath; // Used for filter persistence across reboots.
+	UNICODE_STRING filterStoreValueName; // Used for filter persistence across reboots.
 public:
-	StringFilters();
+	StringFilters(
+		_In_ PUNICODE_STRING RegistryPath,
+		_In_ CONST WCHAR* FilterStoreName
+		);
 	~StringFilters();
 
 	ULONG AddFilter(
 		_In_ WCHAR* MatchString,
-		_In_ ULONG OperationFlag
+		_In_ ULONG OperationFlag,
+		_In_ BOOLEAN SaveFilters = TRUE
 		);
 	BOOLEAN RemoveFilter(
 		_In_ ULONG FilterId
@@ -40,6 +53,14 @@ public:
 	BOOLEAN MatchesFilter(
 		_In_ WCHAR* StrToCmp,
 		_In_ ULONG OperationFlag
+		);
+
+	BOOLEAN SaveFilters(
+		VOID
+		);
+
+	BOOLEAN RestoreFilters(
+		VOID
 		);
 
 	ULONG filtersCount;	// Count of filters in the linked-list.

@@ -97,6 +97,7 @@ typedef class FSBlockingFilter
 public:
 	FSBlockingFilter (
 		_In_ PDRIVER_OBJECT DriverObject,
+		_In_ PUNICODE_STRING RegistryPath,
 		_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
 		_In_ PDETECTION_LOGIC Detector,
 		_Out_ NTSTATUS* InitializeStatus,

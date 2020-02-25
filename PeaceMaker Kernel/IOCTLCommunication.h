@@ -39,6 +39,7 @@ typedef class IOCTLCommunication
 public:
 	IOCTLCommunication(
 		_In_ PDRIVER_OBJECT Driver,
+		_In_ PUNICODE_STRING RegistryPath,
 		_In_ PFLT_FILTER_UNLOAD_CALLBACK UnloadRoutine,
 		_Inout_ NTSTATUS* InitializeStatus
 		);
