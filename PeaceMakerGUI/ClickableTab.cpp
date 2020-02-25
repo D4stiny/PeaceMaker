@@ -95,9 +95,12 @@ void ClickableTab::AddAssociatedElement(QWidget *widget)
  */
 void ClickableTab::SetCustomText(QString newText)
 {
-    oldText = this->text();
-    this->setText(newText);
-    customText = true;
+    if(customText == false)
+    {
+        oldText = this->text();
+        this->setText(newText);
+        customText = true;
+    }
 }
 
 /**

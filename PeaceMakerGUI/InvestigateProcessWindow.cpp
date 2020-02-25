@@ -202,7 +202,7 @@ void InvestigateProcessWindow::UpdateNewProcess(PROCESS_DETAILED_REQUEST detaile
         if(SymFromAddr(GetCurrentProcess(), RCAST<DWORD64>(detailedProcessInformation.StackHistory[i].RawAddress), &offset, currentSymbolInformation))
         {
             stackHistoryString = stackHistoryString.sprintf("%s+0x%llx", currentSymbolInformation->Name, offset);
-            tooltip = stackHistoryString.sprintf("%ls+0x%llx", detailedProcessInformation.StackHistory[i].BinaryPath, detailedProcessInformation.StackHistory[i].BinaryOffset);
+            tooltip = tooltip.sprintf("%ls+0x%llx", detailedProcessInformation.StackHistory[i].BinaryPath, detailedProcessInformation.StackHistory[i].BinaryOffset);
         }
         else
         {
