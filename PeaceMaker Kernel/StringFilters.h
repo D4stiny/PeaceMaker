@@ -29,8 +29,10 @@ typedef class StringFilters
 	BOOLEAN destroying; // This boolean indicates to functions that a lock should not be held as we are in the process of destruction.
 	UNICODE_STRING driverRegistryPath; // Used for filter persistence across reboots.
 	UNICODE_STRING filterStoreValueName; // Used for filter persistence across reboots.
+	STRING_FILTER_TYPE filterType; // What type of filter this class stores.
 public:
 	StringFilters(
+		_In_ STRING_FILTER_TYPE FilterType,
 		_In_ PUNICODE_STRING RegistryPath,
 		_In_ CONST WCHAR* FilterStoreName
 		);

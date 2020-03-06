@@ -9,6 +9,7 @@
 LARGE_INTEGER RegistryBlockingFilter::RegistryFilterCookie;
 PDETECTION_LOGIC RegistryBlockingFilter::detector;
 STACK_WALKER RegistryBlockingFilter::walker;
+PSTRING_FILTERS RegistryBlockingFilter::RegistryStringFilters;
 
 /**
 	Initializes the necessary components of the registry filter.
@@ -26,7 +27,7 @@ RegistryBlockingFilter::RegistryBlockingFilter(
 {
 	UNICODE_STRING filterAltitude;
 
-	RegistryBlockingFilter::RegistryStringFilters = new (NonPagedPool, STRING_REGISTRY_FILTERS_TAG) StringFilters(RegistryPath, L"RegistryFilterStore");
+	RegistryBlockingFilter::RegistryStringFilters = new (NonPagedPool, STRING_REGISTRY_FILTERS_TAG) StringFilters(RegistryFilter, RegistryPath, L"RegistryFilterStore");
 	if (RegistryBlockingFilter::RegistryStringFilters == NULL)
 	{
 		DBGPRINT("RegistryBlockingFilter!RegistryBlockingFilter: Failed to allocate memory for string filters.");
@@ -79,8 +80,6 @@ PSTRING_FILTERS RegistryBlockingFilter::GetStringFilters()
 {
 	return RegistryBlockingFilter::RegistryStringFilters;
 }
-
-PSTRING_FILTERS RegistryBlockingFilter::RegistryStringFilters;
 
 /**
 	Function that decides whether or not to block a registry operation.

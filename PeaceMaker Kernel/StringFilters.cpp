@@ -8,10 +8,12 @@
 
 /**
 	Initialize the CUSTOM_FILTERS class by initializing the linked list's lock.
+	@param Type - The type of filter to add (filesystem or registry).
 	@param RegistryPath - The registry path of the driver.
 	@param FilterStoreName - Name of the filter store.
 */
 StringFilters::StringFilters (
+	_In_ STRING_FILTER_TYPE FilterType,
 	_In_ PUNICODE_STRING RegistryPath,
 	_In_ CONST WCHAR* FilterStoreName
 	)
@@ -24,6 +26,9 @@ StringFilters::StringFilters (
 	this->filtersHead = RCAST<PFILTER_INFO_LINKED>(ExAllocatePoolWithTag(NonPagedPool, sizeof(FILTER_INFO_LINKED), FILTER_INFO_TAG));
 	InitializeListHead(RCAST<PLIST_ENTRY>(this->filtersHead));
 	this->destroying = FALSE;
+
+	this->filtersCount = 0;
+	this->filterType = FilterType;
 
 	//
 	// Initialize space for the driver registry key.
@@ -138,7 +143,8 @@ StringFilters::AddFilter (
 	KeQuerySystemTime(&currentTime);
 	RtlTimeToSecondsSince1970(&currentTime, &epochSeconds);
 	newFilter->Filter.Id = RtlRandomEx(&epochSeconds);
-	
+	newFilter->Filter.Type = this->filterType;
+
 	//
 	// Copy the filter string to the new filter.
 	//
@@ -175,7 +181,7 @@ Exit:
 	@return Whether or not deletion was successful.
 */
 BOOLEAN
-StringFilters::RemoveFilter(
+StringFilters::RemoveFilter (
 	_In_ ULONG FilterId
 	)
 {
@@ -219,6 +225,10 @@ StringFilters::RemoveFilter(
 			RemoveEntryList(RCAST<PLIST_ENTRY>(currentFilter));
 			filterDeleted = TRUE;
 			this->filtersCount--;
+			//
+			// Free the filter.
+			//
+			ExFreePoolWithTag(SCAST<PVOID>(currentFilter), FILTER_INFO_TAG);
 		}
 	}
 
@@ -227,12 +237,9 @@ StringFilters::RemoveFilter(
 	//
 	FltReleasePushLock(&this->filtersLock);
 
-	if (currentFilter)
+	if (filterDeleted)
 	{
-		//
-		// Free the filter.
-		//
-		ExFreePoolWithTag(SCAST<PVOID>(currentFilter), FILTER_INFO_TAG);
+		this->SaveFilters();
 	}
 
 	return filterDeleted;
@@ -384,9 +391,10 @@ StringFilters::SaveFilters (
 	filterStore = RCAST<PFILTER_STORE>(ExAllocatePoolWithTag(NonPagedPool, FILTER_STORE_SIZE(this->filtersCount), FILTER_INFO_TAG));
 	if (filterStore == NULL)
 	{
-		DBGPRINT("StringFilters!SaveFilters: Failed to allocate space for the filter store.");
+		DBGPRINT("StringFilters!SaveFilters: Failed to allocate space for the filter store with size %i.", this->filtersCount);
 		goto Exit;
 	}
+	memset(filterStore, 0, sizeof(filterStore));
 
 	//
 	// Initialize basic members.

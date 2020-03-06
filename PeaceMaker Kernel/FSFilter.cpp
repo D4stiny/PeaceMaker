@@ -30,7 +30,7 @@ FSBlockingFilter::FSBlockingFilter (
 	)
 {
 
-	FSBlockingFilter::FileStringFilters = new (PagedPool, STRING_FILE_FILTERS_TAG) StringFilters(RegistryPath, L"FileFilterStore");
+	FSBlockingFilter::FileStringFilters = new (PagedPool, STRING_FILE_FILTERS_TAG) StringFilters(FilesystemFilter, RegistryPath, L"FileFilterStore");
 	if (FSBlockingFilter::FileStringFilters == NULL)
 	{
 		DBGPRINT("FSBlockingFilter!FSBlockingFilter: Failed to allocate memory for string filters.");
