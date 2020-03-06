@@ -5,7 +5,9 @@ PeaceMaker Threat Detection is a kernel-mode utility designed to detect a variet
 PeaceMaker was designed primarily as a weapon to detect custom malware in virtualized environments. Specifically, this project was started in pursuit of preparing for the [Information Security Talent Search](https://www.ists.io/) blue/red team competition hosted by RIT's Security Club, [RITSEC](https://www.ritsec.club/). The competition's red team is primarily industry security professionals, which is why I decided my own defense platform would be useful. In a project like this, I can make sacrifices to factors such as performance that widely-employed AV/EDR companies can't make, allowing me to make decisions I couldn't get away with in a real product.
 
 ## Features
-- Detecting unmapped (hidden) code via Stack Walking common operations such as:
+- View what code started a process (stack trace).
+- View what code loaded an image into a process (stack trace).
+- Detect unmapped (hidden) code via Stack Walking common operations such as:
 	- Process Creation
 	- Image Load
 	- Thread Creation
