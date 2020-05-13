@@ -688,14 +688,13 @@ void MainWindow::on_DeleteFilterButton_clicked()
     // the row count from the table size to get the
     // right index.
     //
-    selectedRow = filters.size() - 1 - this->ui->FiltersTable->selectedItems()[0]->row();
-
+    selectedRow = this->ui->FiltersTable->selectedItems()[0]->row();
     //
     // If we successfully deleted the filter, remove the row.
     //
     if(communicator.DeleteFilter(filters[selectedRow]))
     {
-        this->ui->FiltersTable->removeRow(this->ui->FiltersTable->selectedItems()[0]->row());
+        this->ui->FiltersTable->removeRow(selectedRow);
 
         //
         // Delete the filter from our records.
