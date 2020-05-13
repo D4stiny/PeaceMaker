@@ -231,22 +231,29 @@ RegistryBlockingFilter::BlockRegistryOperation (
 		//
 		RegistryBlockingFilter::walker.WalkAndResolveStack(&registryOperationStack, &registryOperationStackSize, STACK_HISTORY_TAG);
 
-		NT_ASSERT(fileOperationStack);
+		NT_ASSERT(registryOperationStack);
 
 		//
-		// Convert the registry path to a unicode string.
+		// Only if we successfully walked the stack, report the violation.
 		//
-		RtlInitUnicodeString(&registryOperationPath, fullKeyValueName);
+		if (registryOperationStack != NULL && registryOperationStackSize != 0)
+		{
+			//
+			// Convert the registry path to a unicode string.
+			//
+			RtlInitUnicodeString(&registryOperationPath, fullKeyValueName);
 
-		//
-		// Report the violation.
-		//
-		RegistryBlockingFilter::detector->ReportFilterViolation(RegistryFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &registryOperationPath, registryOperationStack, registryOperationStackSize);
+			//
+			// Report the violation.
+			//
+			RegistryBlockingFilter::detector->ReportFilterViolation(RegistryFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &registryOperationPath, registryOperationStack, registryOperationStackSize);
 
-		//
-		// Clean up.
-		//
-		ExFreePoolWithTag(registryOperationStack, STACK_HISTORY_TAG);
+			//
+			// Clean up.
+			//
+			ExFreePoolWithTag(registryOperationStack, STACK_HISTORY_TAG);
+		}
+
 		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 Exit:
@@ -289,24 +296,30 @@ NTSTATUS RegistryBlockingFilter::RegistryCallback (
 
 	returnStatus = STATUS_SUCCESS;
 
-	switch (OperationClass)
+	//
+	// PeaceMaker is not designed to block kernel operations.
+	//
+	if (ExGetPreviousMode() != KernelMode)
 	{
-	case RegNtPreSetValueKey:
-		setValueInformation = RCAST<PREG_SET_VALUE_KEY_INFORMATION>(Argument2);
-		if (BlockRegistryOperation(setValueInformation->Object, setValueInformation->ValueName, FILTER_FLAG_WRITE))
+		switch (OperationClass)
 		{
-			DBGPRINT("RegistryBlockingFilter!RegistryCallback: Detected RegNtPreSetValueKey of %wZ. Prevented set!", setValueInformation->ValueName);
-			returnStatus = STATUS_ACCESS_DENIED;
-		}	
-		break;
-	case RegNtPreDeleteValueKey:
-		deleteValueInformation = RCAST<PREG_DELETE_VALUE_KEY_INFORMATION>(Argument2);
-		if (BlockRegistryOperation(deleteValueInformation->Object, deleteValueInformation->ValueName, FILTER_FLAG_DELETE))
-		{
-			DBGPRINT("RegistryBlockingFilter!RegistryCallback: Detected RegNtPreDeleteValueKey of %wZ. Prevented rewrite!", deleteValueInformation->ValueName);
-			returnStatus = STATUS_ACCESS_DENIED;
+		case RegNtPreSetValueKey:
+			setValueInformation = RCAST<PREG_SET_VALUE_KEY_INFORMATION>(Argument2);
+			if (BlockRegistryOperation(setValueInformation->Object, setValueInformation->ValueName, FILTER_FLAG_WRITE))
+			{
+				DBGPRINT("RegistryBlockingFilter!RegistryCallback: Detected RegNtPreSetValueKey of %wZ. Prevented set!", setValueInformation->ValueName);
+				returnStatus = STATUS_ACCESS_DENIED;
+			}
+			break;
+		case RegNtPreDeleteValueKey:
+			deleteValueInformation = RCAST<PREG_DELETE_VALUE_KEY_INFORMATION>(Argument2);
+			if (BlockRegistryOperation(deleteValueInformation->Object, deleteValueInformation->ValueName, FILTER_FLAG_DELETE))
+			{
+				DBGPRINT("RegistryBlockingFilter!RegistryCallback: Detected RegNtPreDeleteValueKey of %wZ. Prevented rewrite!", deleteValueInformation->ValueName);
+				returnStatus = STATUS_ACCESS_DENIED;
+			}
+			break;
 		}
-		break;
 	}
 
 	return returnStatus;

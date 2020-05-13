@@ -313,6 +313,15 @@ DetectionLogic::ReportFilterViolation (
 	PFILTER_VIOLATION_ALERT filterViolationAlert;
 
 	//
+	// Sanity check, sometimes stack history can be NULL if the stackwalk failed.
+	//
+	if (StackHistory == NULL || StackHistorySize == 0)
+	{
+		DBGPRINT("DetectionLogic!ReportFilterViolation: StackHistory was invalid!");
+		return;
+	}
+
+	//
 	// Calculate the size of the StackHistory array in bytes.
 	//
 	stackHistoryBytes = sizeof(STACK_RETURN_INFO) * (StackHistorySize - 1);

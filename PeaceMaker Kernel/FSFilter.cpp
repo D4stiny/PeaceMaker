@@ -144,6 +144,14 @@ FSBlockingFilter::HandlePreCreateOperation(
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
+	//
+	// PeaceMaker is not designed to block kernel operations.
+	//
+	if (ExGetPreviousMode() == KernelMode)
+	{
+		return callbackStatus;
+	}
+
 	if (FlagOn(Data->Iopb->Parameters.Create.Options, FILE_DELETE_ON_CLOSE))
 	{
 		if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
@@ -192,14 +200,21 @@ FSBlockingFilter::HandlePreCreateOperation(
 		NT_ASSERT(fileOperationStack);
 
 		//
-		// Report the violation.
+		// Only if we successfully walked the stack, report the violation.
 		//
-		FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
+		if (fileOperationStack != NULL && fileOperationStackSize != 0)
+		{
+			//
+			// Report the violation.
+			//
+			FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
 
-		//
-		// Clean up.
-		//
-		ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+			//
+			// Clean up.
+			//
+			ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+		}
+
 		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 
@@ -240,6 +255,14 @@ FSBlockingFilter::HandlePreWriteOperation(
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
+	//
+	// PeaceMaker is not designed to block kernel operations.
+	//
+	if (ExGetPreviousMode() == KernelMode)
+	{
+		return callbackStatus;
+	}
+
 	if (NT_SUCCESS(FltGetFileNameInformation(Data, FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_DEFAULT, &fileNameInfo)))
 	{
 		if (FSBlockingFilter::FileStringFilters->MatchesFilter(fileNameInfo->Name.Buffer, FILTER_FLAG_WRITE) != FALSE)
@@ -268,14 +291,21 @@ FSBlockingFilter::HandlePreWriteOperation(
 		NT_ASSERT(fileOperationStack);
 
 		//
-		// Report the violation.
+		// Only if we successfully walked the stack, report the violation.
 		//
-		FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
+		if (fileOperationStack != NULL && fileOperationStackSize != 0)
+		{
+			//
+			// Report the violation.
+			//
+			FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
 
-		//
-		// Clean up.
-		//
-		ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+			//
+			// Clean up.
+			//
+			ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+		}
+
 		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 
@@ -316,6 +346,14 @@ FSBlockingFilter::HandlePreSetInfoOperation(
 	fileNameInfo = NULL;
 	callbackStatus = FLT_PREOP_SUCCESS_NO_CALLBACK;
 
+	//
+	// PeaceMaker is not designed to block kernel operations.
+	//
+	if (ExGetPreviousMode() == KernelMode)
+	{
+		return callbackStatus;
+	}
+
 	switch (Data->Iopb->Parameters.SetFileInformation.FileInformationClass) {
 	case FileDispositionInformation:
 	case FileDispositionInformationEx:
@@ -348,14 +386,21 @@ FSBlockingFilter::HandlePreSetInfoOperation(
 		NT_ASSERT(fileOperationStack);
 
 		//
-		// Report the violation.
+		// Only if we successfully walked the stack, report the violation.
 		//
-		FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
+		if (fileOperationStack != NULL && fileOperationStackSize != 0)
+		{
+			//
+			// Report the violation.
+			//
+			FSBlockingFilter::detector->ReportFilterViolation(FileFilterMatch, PsGetCurrentProcessId(), callerProcessPath, &fileNameInfo->Name, fileOperationStack, fileOperationStackSize);
 
-		//
-		// Clean up.
-		//
-		ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+			//
+			// Clean up.
+			//
+			ExFreePoolWithTag(fileOperationStack, STACK_HISTORY_TAG);
+		}
+
 		ExFreePoolWithTag(callerProcessPath, IMAGE_NAME_TAG);
 	}
 

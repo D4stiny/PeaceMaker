@@ -344,8 +344,15 @@ IOCTLCommunication::IOCTLDeviceControl (
 			goto Exit;
 		}
 
-		DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Adding filter with content %ws.", temporaryFilterBuffer);
-
+		//
+		// Sanity check.
+		//
+		if (wcsnlen_s(temporaryFilterBuffer, MAX_PATH) == 0)
+		{
+			DBGPRINT("IOCTLCommunication!IOCTLDeviceControl: Blocked empty filter.");
+			goto Exit;
+		}
+		
 		//
 		// Depending on the type of filter, add the string.
 		//
